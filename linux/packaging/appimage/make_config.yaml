@@ -1,0 +1,18 @@
+display_name: LiClash
+
+icon: ./assets/images/icon.png
+
+keywords:
+  - LiClash
+  - Clash
+  - ClashMeta
+  - Proxy
+
+generic_name: LiClash
+
+categories:
+  - Network
+
+startup_notify: true
+
+include: []
