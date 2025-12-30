@@ -1,17 +1,17 @@
-package ca
+package tls
 
 import (
-	"github.com/metacubex/tls"
+	utls "github.com/metacubex/utls"
 )
 
-type ClientAuthType = tls.ClientAuthType
+type ClientAuthType = utls.ClientAuthType
 
 const (
-	NoClientCert               = tls.NoClientCert
-	RequestClientCert          = tls.RequestClientCert
-	RequireAnyClientCert       = tls.RequireAnyClientCert
-	VerifyClientCertIfGiven    = tls.VerifyClientCertIfGiven
-	RequireAndVerifyClientCert = tls.RequireAndVerifyClientCert
+	NoClientCert               = utls.NoClientCert
+	RequestClientCert          = utls.RequestClientCert
+	RequireAnyClientCert       = utls.RequireAnyClientCert
+	VerifyClientCertIfGiven    = utls.VerifyClientCertIfGiven
+	RequireAndVerifyClientCert = utls.RequireAndVerifyClientCert
 )
 
 func ClientAuthTypeFromString(s string) ClientAuthType {

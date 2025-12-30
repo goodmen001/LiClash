@@ -3,13 +3,14 @@ package tls
 import (
 	"context"
 	"net"
+	"net/http"
 	"runtime/debug"
 	"time"
 
 	N "github.com/metacubex/mihomo/common/net"
 	"github.com/metacubex/mihomo/log"
 
-	"github.com/metacubex/http"
+	"golang.org/x/net/http2"
 )
 
 func extractTlsHandshakeTimeoutFromServer(s *http.Server) time.Duration {
@@ -34,8 +35,8 @@ func extractTlsHandshakeTimeoutFromServer(s *http.Server) time.Duration {
 // only do tls handshake and check NegotiatedProtocol with std's *tls.Conn
 // so we do the same logic to let http2 (not h2c) work fine
 func NewListenerForHttps(l net.Listener, httpServer *http.Server, tlsConfig *Config) net.Listener {
-	http2Server := &http.Http2Server{}
-	_ = http.Http2ConfigureServer(httpServer, http2Server)
+	http2Server := &http2.Server{}
+	_ = http2.ConfigureServer(httpServer, http2Server)
 	return N.NewHandleContextListener(context.Background(), l, func(ctx context.Context, conn net.Conn) (net.Conn, error) {
 		c := Server(conn, tlsConfig)
 
@@ -57,8 +58,8 @@ func NewListenerForHttps(l net.Listener, httpServer *http.Server, tlsConfig *Con
 			_ = conn.SetWriteDeadline(time.Time{})
 		}
 
-		if c.ConnectionState().NegotiatedProtocol == http.Http2NextProtoTLS {
-			http2Server.ServeConn(c, &http.Http2ServeConnOpts{BaseConfig: httpServer})
+		if c.ConnectionState().NegotiatedProtocol == http2.NextProtoTLS {
+			http2Server.ServeConn(c, &http2.ServeConnOpts{BaseConfig: httpServer})
 			return nil, net.ErrClosed
 		}
 		return c, nil

@@ -18,7 +18,6 @@ import (
 	"github.com/metacubex/mihomo/transport/vless/encryption"
 
 	"github.com/gofrs/uuid/v5"
-	"github.com/metacubex/tls"
 )
 
 var ErrNotHandshakeComplete = errors.New("tls connection not handshake complete")
@@ -42,13 +41,6 @@ func NewConn(conn net.Conn, tlsConn net.Conn, userUUID uuid.UUID) (*Conn, error)
 	for {
 		switch underlying := upstream.(type) {
 		case *gotls.Conn:
-			//log.Debugln("type tls")
-			tlsConn = underlying
-			c.netConn = underlying.NetConn()
-			t = reflect.TypeOf(underlying).Elem()
-			p = unsafe.Pointer(underlying)
-			break
-		case *tls.Conn:
 			//log.Debugln("type tls")
 			tlsConn = underlying
 			c.netConn = underlying.NetConn()
@@ -120,14 +112,6 @@ func checkTLSVersion(tlsConn net.Conn) error {
 			return ErrNotHandshakeComplete
 		}
 		if state.Version != gotls.VersionTLS13 {
-			return ErrNotTLS13
-		}
-	case *tls.Conn:
-		state := underlying.ConnectionState()
-		if !state.HandshakeComplete {
-			return ErrNotHandshakeComplete
-		}
-		if state.Version != tls.VersionTLS13 {
 			return ErrNotTLS13
 		}
 	case *tlsC.Conn:

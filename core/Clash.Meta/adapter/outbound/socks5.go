@@ -2,6 +2,7 @@ package outbound
 
 import (
 	"context"
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"io"
@@ -11,10 +12,10 @@ import (
 
 	N "github.com/metacubex/mihomo/common/net"
 	"github.com/metacubex/mihomo/component/ca"
+	"github.com/metacubex/mihomo/component/dialer"
+	"github.com/metacubex/mihomo/component/proxydialer"
 	C "github.com/metacubex/mihomo/constant"
 	"github.com/metacubex/mihomo/transport/socks5"
-
-	"github.com/metacubex/tls"
 )
 
 type Socks5 struct {
@@ -68,7 +69,18 @@ func (ss *Socks5) StreamConnContext(ctx context.Context, c net.Conn, metadata *C
 
 // DialContext implements C.ProxyAdapter
 func (ss *Socks5) DialContext(ctx context.Context, metadata *C.Metadata) (_ C.Conn, err error) {
-	c, err := ss.dialer.DialContext(ctx, "tcp", ss.addr)
+	return ss.DialContextWithDialer(ctx, dialer.NewDialer(ss.DialOptions()...), metadata)
+}
+
+// DialContextWithDialer implements C.ProxyAdapter
+func (ss *Socks5) DialContextWithDialer(ctx context.Context, dialer C.Dialer, metadata *C.Metadata) (_ C.Conn, err error) {
+	if len(ss.option.DialerProxy) > 0 {
+		dialer, err = proxydialer.NewByName(ss.option.DialerProxy, dialer)
+		if err != nil {
+			return nil, err
+		}
+	}
+	c, err := dialer.DialContext(ctx, "tcp", ss.addr)
 	if err != nil {
 		return nil, fmt.Errorf("%s connect error: %w", ss.addr, err)
 	}
@@ -85,12 +97,24 @@ func (ss *Socks5) DialContext(ctx context.Context, metadata *C.Metadata) (_ C.Co
 	return NewConn(c, ss), nil
 }
 
+// SupportWithDialer implements C.ProxyAdapter
+func (ss *Socks5) SupportWithDialer() C.NetWork {
+	return C.TCP
+}
+
 // ListenPacketContext implements C.ProxyAdapter
 func (ss *Socks5) ListenPacketContext(ctx context.Context, metadata *C.Metadata) (_ C.PacketConn, err error) {
+	var cDialer C.Dialer = dialer.NewDialer(ss.DialOptions()...)
+	if len(ss.option.DialerProxy) > 0 {
+		cDialer, err = proxydialer.NewByName(ss.option.DialerProxy, cDialer)
+		if err != nil {
+			return nil, err
+		}
+	}
 	if err = ss.ResolveUDP(ctx, metadata); err != nil {
 		return nil, err
 	}
-	c, err := ss.dialer.DialContext(ctx, "tcp", ss.addr)
+	c, err := cDialer.DialContext(ctx, "tcp", ss.addr)
 	if err != nil {
 		err = fmt.Errorf("%s connect error: %w", ss.addr, err)
 		return
@@ -137,7 +161,7 @@ func (ss *Socks5) ListenPacketContext(ctx context.Context, metadata *C.Metadata)
 		bindUDPAddr.IP = serverAddr.IP
 	}
 
-	pc, err := ss.dialer.ListenPacket(ctx, "udp", "", bindUDPAddr.AddrPort())
+	pc, err := cDialer.ListenPacket(ctx, "udp", "", bindUDPAddr.AddrPort())
 	if err != nil {
 		return
 	}
@@ -186,18 +210,17 @@ func NewSocks5(option Socks5Option) (*Socks5, error) {
 		}
 	}
 
-	outbound := &Socks5{
+	return &Socks5{
 		Base: &Base{
 			name:   option.Name,
 			addr:   net.JoinHostPort(option.Server, strconv.Itoa(option.Port)),
 			tp:     C.Socks5,
-			pdName: option.ProviderName,
 			udp:    option.UDP,
 			tfo:    option.TFO,
 			mpTcp:  option.MPTCP,
 			iface:  option.Interface,
 			rmark:  option.RoutingMark,
-			prefer: option.IPVersion,
+			prefer: C.NewDNSPrefer(option.IPVersion),
 		},
 		option:         &option,
 		user:           option.UserName,
@@ -205,9 +228,7 @@ func NewSocks5(option Socks5Option) (*Socks5, error) {
 		tls:            option.TLS,
 		skipCertVerify: option.SkipCertVerify,
 		tlsConfig:      tlsConfig,
-	}
-	outbound.dialer = option.NewDialer(outbound.DialOptions())
-	return outbound, nil
+	}, nil
 }
 
 type socksPacketConn struct {

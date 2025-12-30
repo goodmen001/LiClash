@@ -162,7 +162,6 @@ type DNS struct {
 	FakeIPRange6          netip.Prefix
 	FakeIPPool6           *fakeip.Pool
 	FakeIPSkipper         *fakeip.Skipper
-	FakeIPTTL             int
 	NameServerPolicy      []dns.Policy
 	ProxyServerNameserver []dns.NameServer
 	DirectNameServer      []dns.NameServer
@@ -229,7 +228,6 @@ type RawDNS struct {
 	FakeIPRange6                 string                              `yaml:"fake-ip-range6" json:"fake-ip-range6"`
 	FakeIPFilter                 []string                            `yaml:"fake-ip-filter" json:"fake-ip-filter"`
 	FakeIPFilterMode             C.FilterMode                        `yaml:"fake-ip-filter-mode" json:"fake-ip-filter-mode"`
-	FakeIPTTL                    int                                 `yaml:"fake-ip-ttl" json:"fake-ip-ttl"`
 	DefaultNameserver            []string                            `yaml:"default-nameserver" json:"default-nameserver"`
 	CacheAlgorithm               string                              `yaml:"cache-algorithm" json:"cache-algorithm"`
 	CacheMaxSize                 int                                 `yaml:"cache-max-size" json:"cache-max-size"`
@@ -492,7 +490,6 @@ func DefaultRawConfig() *RawConfig {
 			IPv6Timeout:    100,
 			EnhancedMode:   C.DNSMapping,
 			FakeIPRange:    "198.18.0.1/16",
-			FakeIPTTL:      1,
 			FallbackFilter: RawFallbackFilter{
 				GeoIP:     true,
 				GeoIPCode: "CN",
@@ -1292,7 +1289,7 @@ func parseNameServerPolicy(nsPolicy *orderedmap.OrderedMap[string, any], rulePro
 		}
 		kLower := strings.ToLower(k)
 		if strings.Contains(kLower, ",") {
-			if strings.HasPrefix(kLower, "geosite:") {
+			if strings.Contains(kLower, "geosite:") {
 				subkeys := strings.Split(k, ":")
 				subkeys = subkeys[1:]
 				subkeys = strings.Split(subkeys[0], ",")
@@ -1300,7 +1297,7 @@ func parseNameServerPolicy(nsPolicy *orderedmap.OrderedMap[string, any], rulePro
 					newKey := "geosite:" + subkey
 					policy = append(policy, dns.Policy{Domain: newKey, NameServers: nameservers})
 				}
-			} else if strings.HasPrefix(kLower, "rule-set:") {
+			} else if strings.Contains(kLower, "rule-set:") {
 				subkeys := strings.Split(k, ":")
 				subkeys = subkeys[1:]
 				subkeys = strings.Split(subkeys[0], ",")
@@ -1315,9 +1312,9 @@ func parseNameServerPolicy(nsPolicy *orderedmap.OrderedMap[string, any], rulePro
 				}
 			}
 		} else {
-			if strings.HasPrefix(kLower, "geosite:") {
+			if strings.Contains(kLower, "geosite:") {
 				policy = append(policy, dns.Policy{Domain: "geosite:" + k[8:], NameServers: nameservers})
-			} else if strings.HasPrefix(kLower, "rule-set:") {
+			} else if strings.Contains(kLower, "rule-set:") {
 				policy = append(policy, dns.Policy{Domain: "rule-set:" + k[9:], NameServers: nameservers})
 			} else {
 				policy = append(policy, dns.Policy{Domain: k, NameServers: nameservers})
@@ -1461,7 +1458,6 @@ func parseDNS(rawCfg *RawConfig, ruleProviders map[string]P.RuleProvider) (*DNS,
 			Mode: cfg.FakeIPFilterMode,
 		}
 		dnsCfg.FakeIPSkipper = skipper
-		dnsCfg.FakeIPTTL = cfg.FakeIPTTL
 
 		if dnsCfg.FakeIPRange.IsValid() {
 			pool, err := fakeip.New(fakeip.Options{
@@ -1712,7 +1708,7 @@ func parseSniffer(snifferRaw RawSniffer, ruleProviders map[string]P.RuleProvider
 	}
 	snifferConfig.SkipSrcAddress = skipSrcAddress
 
-	skipDstAddress, err := parseIPCIDR(snifferRaw.SkipDstAddress, nil, "sniffer.skip-dst-address", ruleProviders)
+	skipDstAddress, err := parseIPCIDR(snifferRaw.SkipDstAddress, nil, "sniffer.skip-src-address", ruleProviders)
 	if err != nil {
 		return nil, fmt.Errorf("error in skip-dst-address, error:%w", err)
 	}
@@ -1731,7 +1727,7 @@ func parseIPCIDR(addresses []string, cidrSet *cidr.IpCidrSet, adapterName string
 	var matcher C.IpMatcher
 	for _, ipcidr := range addresses {
 		ipcidrLower := strings.ToLower(ipcidr)
-		if strings.HasPrefix(ipcidrLower, "geoip:") {
+		if strings.Contains(ipcidrLower, "geoip:") {
 			subkeys := strings.Split(ipcidr, ":")
 			subkeys = subkeys[1:]
 			subkeys = strings.Split(subkeys[0], ",")
@@ -1742,7 +1738,7 @@ func parseIPCIDR(addresses []string, cidrSet *cidr.IpCidrSet, adapterName string
 				}
 				matchers = append(matchers, matcher)
 			}
-		} else if strings.HasPrefix(ipcidrLower, "rule-set:") {
+		} else if strings.Contains(ipcidrLower, "rule-set:") {
 			subkeys := strings.Split(ipcidr, ":")
 			subkeys = subkeys[1:]
 			subkeys = strings.Split(subkeys[0], ",")
@@ -1778,7 +1774,7 @@ func parseDomain(domains []string, domainTrie *trie.DomainTrie[struct{}], adapte
 	var matcher C.DomainMatcher
 	for _, domain := range domains {
 		domainLower := strings.ToLower(domain)
-		if strings.HasPrefix(domainLower, "geosite:") {
+		if strings.Contains(domainLower, "geosite:") {
 			subkeys := strings.Split(domain, ":")
 			subkeys = subkeys[1:]
 			subkeys = strings.Split(subkeys[0], ",")
@@ -1789,7 +1785,7 @@ func parseDomain(domains []string, domainTrie *trie.DomainTrie[struct{}], adapte
 				}
 				matchers = append(matchers, matcher)
 			}
-		} else if strings.HasPrefix(domainLower, "rule-set:") {
+		} else if strings.Contains(domainLower, "rule-set:") {
 			subkeys := strings.Split(domain, ":")
 			subkeys = subkeys[1:]
 			subkeys = strings.Split(subkeys[0], ",")

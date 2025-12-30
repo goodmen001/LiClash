@@ -149,17 +149,11 @@ func TestNewMieru(t *testing.T) {
 }
 
 func TestInboundMieru(t *testing.T) {
-	t.Run("TCP_HANDSHAKE_STANDARD", func(t *testing.T) {
+	t.Run("HANDSHAKE_STANDARD", func(t *testing.T) {
 		testInboundMieruTCP(t, "HANDSHAKE_STANDARD")
 	})
-	t.Run("TCP_HANDSHAKE_NO_WAIT", func(t *testing.T) {
+	t.Run("HANDSHAKE_NO_WAIT", func(t *testing.T) {
 		testInboundMieruTCP(t, "HANDSHAKE_NO_WAIT")
-	})
-	t.Run("UDP_HANDSHAKE_STANDARD", func(t *testing.T) {
-		testInboundMieruUDP(t, "HANDSHAKE_STANDARD")
-	})
-	t.Run("UDP_HANDSHAKE_NO_WAIT", func(t *testing.T) {
-		testInboundMieruUDP(t, "HANDSHAKE_NO_WAIT")
 	})
 }
 
@@ -174,7 +168,7 @@ func testInboundMieruTCP(t *testing.T, handshakeMode string) {
 
 	inboundOptions := inbound.MieruOption{
 		BaseOption: inbound.BaseOption{
-			NameStr: "mieru_inbound_tcp",
+			NameStr: "mieru_inbound",
 			Listen:  "127.0.0.1",
 			Port:    strconv.Itoa(port),
 		},
@@ -200,7 +194,7 @@ func testInboundMieruTCP(t *testing.T, handshakeMode string) {
 		return
 	}
 	outboundOptions := outbound.MieruOption{
-		Name:          "mieru_outbound_tcp",
+		Name:          "mieru_outbound",
 		Server:        addrPort.Addr().String(),
 		Port:          int(addrPort.Port()),
 		Transport:     "TCP",
@@ -215,58 +209,4 @@ func testInboundMieruTCP(t *testing.T, handshakeMode string) {
 	defer out.Close()
 
 	tunnel.DoTest(t, out)
-}
-
-func testInboundMieruUDP(t *testing.T, handshakeMode string) {
-	t.Parallel()
-	l, err := net.ListenPacket("udp", "127.0.0.1:0")
-	if !assert.NoError(t, err) {
-		return
-	}
-	port := l.LocalAddr().(*net.UDPAddr).Port
-	l.Close()
-
-	inboundOptions := inbound.MieruOption{
-		BaseOption: inbound.BaseOption{
-			NameStr: "mieru_inbound_udp",
-			Listen:  "127.0.0.1",
-			Port:    strconv.Itoa(port),
-		},
-		Transport: "UDP",
-		Users:     map[string]string{"test": "password"},
-	}
-	in, err := inbound.NewMieru(&inboundOptions)
-	if !assert.NoError(t, err) {
-		return
-	}
-
-	tunnel := NewHttpTestTunnel()
-	defer tunnel.Close()
-
-	err = in.Listen(tunnel)
-	if !assert.NoError(t, err) {
-		return
-	}
-	defer in.Close()
-
-	addrPort, err := netip.ParseAddrPort(in.Address())
-	if !assert.NoError(t, err) {
-		return
-	}
-	outboundOptions := outbound.MieruOption{
-		Name:          "mieru_outbound_udp",
-		Server:        addrPort.Addr().String(),
-		Port:          int(addrPort.Port()),
-		Transport:     "UDP",
-		UserName:      "test",
-		Password:      "password",
-		HandshakeMode: handshakeMode,
-	}
-	out, err := outbound.NewMieru(outboundOptions)
-	if !assert.NoError(t, err) {
-		return
-	}
-	defer out.Close()
-
-	tunnel.DoSequentialTest(t, out)
 }

@@ -269,7 +269,6 @@ func updateDNS(c *config.DNS, generalIPv6 bool) {
 		FakeIPPool:    c.FakeIPPool,
 		FakeIPPool6:   c.FakeIPPool6,
 		FakeIPSkipper: c.FakeIPSkipper,
-		FakeIPTTL:     c.FakeIPTTL,
 		UseHosts:      c.UseHosts,
 	})
 
@@ -453,7 +452,12 @@ func patchSelectGroup(proxies map[string]C.Proxy) {
 		return
 	}
 
-	for name, outbound := range proxies {
+	for name, proxy := range proxies {
+		outbound, ok := proxy.(C.Proxy)
+		if !ok {
+			continue
+		}
+
 		selector, ok := outbound.Adapter().(outboundgroup.SelectAble)
 		if !ok {
 			continue

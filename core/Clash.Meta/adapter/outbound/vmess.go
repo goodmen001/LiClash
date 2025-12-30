@@ -2,9 +2,11 @@ package outbound
 
 import (
 	"context"
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"net"
+	"net/http"
 	"strconv"
 	"strings"
 	"sync"
@@ -12,18 +14,18 @@ import (
 	N "github.com/metacubex/mihomo/common/net"
 	"github.com/metacubex/mihomo/common/utils"
 	"github.com/metacubex/mihomo/component/ca"
+	"github.com/metacubex/mihomo/component/dialer"
 	"github.com/metacubex/mihomo/component/ech"
+	"github.com/metacubex/mihomo/component/proxydialer"
 	tlsC "github.com/metacubex/mihomo/component/tls"
 	C "github.com/metacubex/mihomo/constant"
 	"github.com/metacubex/mihomo/ntp"
 	"github.com/metacubex/mihomo/transport/gun"
 	mihomoVMess "github.com/metacubex/mihomo/transport/vmess"
 
-	"github.com/metacubex/http"
 	vmess "github.com/metacubex/sing-vmess"
 	"github.com/metacubex/sing-vmess/packetaddr"
 	M "github.com/metacubex/sing/common/metadata"
-	"github.com/metacubex/tls"
 )
 
 var ErrUDPRemoteAddrMismatch = errors.New("udp packet dropped due to mismatched remote address")
@@ -311,7 +313,18 @@ func (v *Vmess) DialContext(ctx context.Context, metadata *C.Metadata) (_ C.Conn
 
 		return NewConn(c, v), nil
 	}
-	c, err = v.dialer.DialContext(ctx, "tcp", v.addr)
+	return v.DialContextWithDialer(ctx, dialer.NewDialer(v.DialOptions()...), metadata)
+}
+
+// DialContextWithDialer implements C.ProxyAdapter
+func (v *Vmess) DialContextWithDialer(ctx context.Context, dialer C.Dialer, metadata *C.Metadata) (_ C.Conn, err error) {
+	if len(v.option.DialerProxy) > 0 {
+		dialer, err = proxydialer.NewByName(v.option.DialerProxy, dialer)
+		if err != nil {
+			return nil, err
+		}
+	}
+	c, err := dialer.DialContext(ctx, "tcp", v.addr)
 	if err != nil {
 		return nil, fmt.Errorf("%s connect error: %s", v.addr, err.Error())
 	}
@@ -345,12 +358,23 @@ func (v *Vmess) ListenPacketContext(ctx context.Context, metadata *C.Metadata) (
 		}
 		return v.ListenPacketOnStreamConn(ctx, c, metadata)
 	}
+	return v.ListenPacketWithDialer(ctx, dialer.NewDialer(v.DialOptions()...), metadata)
+}
+
+// ListenPacketWithDialer implements C.ProxyAdapter
+func (v *Vmess) ListenPacketWithDialer(ctx context.Context, dialer C.Dialer, metadata *C.Metadata) (_ C.PacketConn, err error) {
+	if len(v.option.DialerProxy) > 0 {
+		dialer, err = proxydialer.NewByName(v.option.DialerProxy, dialer)
+		if err != nil {
+			return nil, err
+		}
+	}
 
 	if err = v.ResolveUDP(ctx, metadata); err != nil {
 		return nil, err
 	}
 
-	c, err = v.dialer.DialContext(ctx, "tcp", v.addr)
+	c, err := dialer.DialContext(ctx, "tcp", v.addr)
 	if err != nil {
 		return nil, fmt.Errorf("%s connect error: %s", v.addr, err.Error())
 	}
@@ -363,6 +387,11 @@ func (v *Vmess) ListenPacketContext(ctx context.Context, metadata *C.Metadata) (
 		return nil, fmt.Errorf("new vmess client error: %v", err)
 	}
 	return v.ListenPacketOnStreamConn(ctx, c, metadata)
+}
+
+// SupportWithDialer implements C.ProxyAdapter
+func (v *Vmess) SupportWithDialer() C.NetWork {
+	return C.ALLNet
 }
 
 // ProxyInfo implements C.ProxyAdapter
@@ -427,19 +456,17 @@ func NewVmess(option VmessOption) (*Vmess, error) {
 			name:   option.Name,
 			addr:   net.JoinHostPort(option.Server, strconv.Itoa(option.Port)),
 			tp:     C.Vmess,
-			pdName: option.ProviderName,
 			udp:    option.UDP,
 			xudp:   option.XUDP,
 			tfo:    option.TFO,
 			mpTcp:  option.MPTCP,
 			iface:  option.Interface,
 			rmark:  option.RoutingMark,
-			prefer: option.IPVersion,
+			prefer: C.NewDNSPrefer(option.IPVersion),
 		},
 		client: client,
 		option: &option,
 	}
-	v.dialer = option.NewDialer(v.DialOptions())
 
 	v.realityConfig, err = v.option.RealityOpts.Parse()
 	if err != nil {
@@ -458,7 +485,15 @@ func NewVmess(option VmessOption) (*Vmess, error) {
 		}
 	case "grpc":
 		dialFn := func(ctx context.Context, network, addr string) (net.Conn, error) {
-			c, err := v.dialer.DialContext(ctx, "tcp", v.addr)
+			var err error
+			var cDialer C.Dialer = dialer.NewDialer(v.DialOptions()...)
+			if len(v.option.DialerProxy) > 0 {
+				cDialer, err = proxydialer.NewByName(v.option.DialerProxy, cDialer)
+				if err != nil {
+					return nil, err
+				}
+			}
+			c, err := cDialer.DialContext(ctx, "tcp", v.addr)
 			if err != nil {
 				return nil, fmt.Errorf("%s connect error: %s", v.addr, err.Error())
 			}

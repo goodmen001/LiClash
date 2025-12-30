@@ -153,15 +153,15 @@ class Utils {
     final suffix = system.isWindows ? 'ico' : 'png';
     
     // macOS 和 Windows 根据系统主题和启动状态切换图标
-    // 暗色模式：默认黑色，启动后白色
-    // 亮色模式：默认白色，启动后黑色
+    // 深色模式：默认显示黑色图标，启动后显示白色图标
+    // 亮色模式：默认显示白色图标，启动后显示黑色图标
     return switch (brightness) {
-      Brightness.dark => isStart 
-          ? "assets/images/icon_white.$suffix"
-          : "assets/images/icon_black.$suffix",
-      Brightness.light => isStart
+      Brightness.dark => !isStart 
           ? "assets/images/icon_black.$suffix"
           : "assets/images/icon_white.$suffix",
+      Brightness.light => !isStart
+          ? "assets/images/icon_white.$suffix"
+          : "assets/images/icon_black.$suffix",
     };
   }
 

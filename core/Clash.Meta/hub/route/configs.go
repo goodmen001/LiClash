@@ -1,6 +1,7 @@
 package route
 
 import (
+	"net/http"
 	"net/netip"
 	"path/filepath"
 
@@ -17,9 +18,8 @@ import (
 	"github.com/metacubex/mihomo/log"
 	"github.com/metacubex/mihomo/tunnel"
 
-	"github.com/metacubex/chi"
-	"github.com/metacubex/chi/render"
-	"github.com/metacubex/http"
+	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/render"
 )
 
 func configRouter() http.Handler {

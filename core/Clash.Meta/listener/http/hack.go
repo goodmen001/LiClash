@@ -2,10 +2,9 @@ package http
 
 import (
 	"bufio"
+	"net/http"
 	_ "unsafe"
-
-	"github.com/metacubex/http"
 )
 
-//go:linkname ReadRequest github.com/metacubex/http.readRequest
+//go:linkname ReadRequest net/http.readRequest
 func ReadRequest(b *bufio.Reader) (req *http.Request, err error)

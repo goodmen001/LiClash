@@ -2,10 +2,9 @@ package inbound
 
 import (
 	"net"
+	"net/http"
 
 	C "github.com/metacubex/mihomo/constant"
-
-	"github.com/metacubex/http"
 )
 
 // NewHTTPS receive CONNECT request and return ConnContext

@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	tlsC "github.com/metacubex/mihomo/component/tls"
 	"github.com/metacubex/mihomo/transport/hysteria/obfs"
 	"github.com/metacubex/mihomo/transport/hysteria/pmtud_fix"
 	"github.com/metacubex/mihomo/transport/hysteria/transport"
@@ -17,7 +18,6 @@ import (
 	"github.com/metacubex/quic-go"
 	"github.com/metacubex/quic-go/congestion"
 	"github.com/metacubex/randv2"
-	"github.com/metacubex/tls"
 )
 
 var (
@@ -36,7 +36,7 @@ type Client struct {
 	congestionFactory CongestionFactory
 	obfuscator        obfs.Obfuscator
 
-	tlsConfig  *tls.Config
+	tlsConfig  *tlsC.Config
 	quicConfig *quic.Config
 
 	quicSession    *quic.Conn
@@ -50,7 +50,7 @@ type Client struct {
 	fastOpen        bool
 }
 
-func NewClient(serverAddr string, serverPorts string, protocol string, auth []byte, tlsConfig *tls.Config, quicConfig *quic.Config,
+func NewClient(serverAddr string, serverPorts string, protocol string, auth []byte, tlsConfig *tlsC.Config, quicConfig *quic.Config,
 	transport *transport.ClientTransport, sendBPS uint64, recvBPS uint64, congestionFactory CongestionFactory,
 	obfuscator obfs.Obfuscator, hopInterval time.Duration, fastOpen bool) (*Client, error) {
 	quicConfig.DisablePathMTUDiscovery = quicConfig.DisablePathMTUDiscovery || pmtud_fix.DisablePathMTUDiscovery

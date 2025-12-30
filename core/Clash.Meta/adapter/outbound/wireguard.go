@@ -40,6 +40,7 @@ type WireGuard struct {
 	bind      *wireguard.ClientBind
 	device    wireguardGoDevice
 	tunDevice wireguard.Device
+	dialer    proxydialer.SingDialer
 	resolver  resolver.Resolver
 
 	initOk        atomic.Bool
@@ -170,15 +171,14 @@ func NewWireGuard(option WireGuardOption) (*WireGuard, error) {
 			name:   option.Name,
 			addr:   net.JoinHostPort(option.Server, strconv.Itoa(option.Port)),
 			tp:     C.WireGuard,
-			pdName: option.ProviderName,
 			udp:    option.UDP,
 			iface:  option.Interface,
 			rmark:  option.RoutingMark,
-			prefer: option.IPVersion,
+			prefer: C.NewDNSPrefer(option.IPVersion),
 		},
 	}
-	outbound.dialer = option.NewDialer(outbound.DialOptions())
-	singDialer := proxydialer.NewSlowDownSingDialer(proxydialer.NewSingDialer(outbound.dialer), slowdown.New())
+	singDialer := proxydialer.NewSlowDownSingDialer(proxydialer.NewByNameSingDialer(option.DialerProxy, dialer.NewDialer(outbound.DialOptions()...)), slowdown.New())
+	outbound.dialer = singDialer
 
 	var reserved [3]uint8
 	if len(option.Reserved) > 0 {
@@ -196,7 +196,7 @@ func NewWireGuard(option WireGuardOption) (*WireGuard, error) {
 			outbound.connectAddr = option.Addr()
 		}
 	}
-	outbound.bind = wireguard.NewClientBind(context.Background(), wgSingErrorHandler{outbound.Name()}, singDialer, isConnect, outbound.connectAddr.AddrPort(), reserved)
+	outbound.bind = wireguard.NewClientBind(context.Background(), wgSingErrorHandler{outbound.Name()}, outbound.dialer, isConnect, outbound.connectAddr.AddrPort(), reserved)
 
 	var err error
 	outbound.localPrefixes, err = option.Prefixes()
@@ -607,13 +607,6 @@ func (w *WireGuard) ResolveUDP(ctx context.Context, metadata *C.Metadata) error 
 		metadata.DstIP = ip
 	}
 	return nil
-}
-
-// ProxyInfo implements C.ProxyAdapter
-func (w *WireGuard) ProxyInfo() C.ProxyInfo {
-	info := w.Base.ProxyInfo()
-	info.DialerProxy = w.option.DialerProxy
-	return info
 }
 
 // IsL3Protocol implements C.ProxyAdapter

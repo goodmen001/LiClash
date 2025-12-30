@@ -12,7 +12,6 @@ import (
 	N "github.com/metacubex/mihomo/common/net"
 	"github.com/metacubex/mihomo/common/utils"
 	"github.com/metacubex/mihomo/component/dialer"
-	"github.com/metacubex/mihomo/component/proxydialer"
 	"github.com/metacubex/mihomo/component/resolver"
 	C "github.com/metacubex/mihomo/constant"
 	"github.com/metacubex/mihomo/log"
@@ -27,17 +26,15 @@ type ProxyAdapter interface {
 type Base struct {
 	name   string
 	addr   string
+	iface  string
 	tp     C.AdapterType
-	pdName string
 	udp    bool
 	xudp   bool
 	tfo    bool
 	mpTcp  bool
-	iface  string
 	rmark  int
-	prefer C.DNSPrefer
-	dialer C.Dialer
 	id     string
+	prefer C.DNSPrefer
 }
 
 // Name implements C.ProxyAdapter
@@ -59,13 +56,33 @@ func (b *Base) Type() C.AdapterType {
 	return b.tp
 }
 
+// StreamConnContext implements C.ProxyAdapter
+func (b *Base) StreamConnContext(ctx context.Context, c net.Conn, metadata *C.Metadata) (net.Conn, error) {
+	return c, C.ErrNotSupport
+}
+
 func (b *Base) DialContext(ctx context.Context, metadata *C.Metadata) (C.Conn, error) {
+	return nil, C.ErrNotSupport
+}
+
+// DialContextWithDialer implements C.ProxyAdapter
+func (b *Base) DialContextWithDialer(ctx context.Context, dialer C.Dialer, metadata *C.Metadata) (_ C.Conn, err error) {
 	return nil, C.ErrNotSupport
 }
 
 // ListenPacketContext implements C.ProxyAdapter
 func (b *Base) ListenPacketContext(ctx context.Context, metadata *C.Metadata) (C.PacketConn, error) {
 	return nil, C.ErrNotSupport
+}
+
+// ListenPacketWithDialer implements C.ProxyAdapter
+func (b *Base) ListenPacketWithDialer(ctx context.Context, dialer C.Dialer, metadata *C.Metadata) (_ C.PacketConn, err error) {
+	return nil, C.ErrNotSupport
+}
+
+// SupportWithDialer implements C.ProxyAdapter
+func (b *Base) SupportWithDialer() C.NetWork {
+	return C.InvalidNet
 }
 
 // SupportUOT implements C.ProxyAdapter
@@ -86,7 +103,6 @@ func (b *Base) ProxyInfo() (info C.ProxyInfo) {
 	info.SMUX = false
 	info.Interface = b.iface
 	info.RoutingMark = b.rmark
-	info.ProviderName = b.pdName
 	return
 }
 
@@ -162,30 +178,12 @@ func (b *Base) Close() error {
 }
 
 type BasicOption struct {
-	TFO         bool        `proxy:"tfo,omitempty"`
-	MPTCP       bool        `proxy:"mptcp,omitempty"`
-	Interface   string      `proxy:"interface-name,omitempty"`
-	RoutingMark int         `proxy:"routing-mark,omitempty"`
-	IPVersion   C.DNSPrefer `proxy:"ip-version,omitempty"`
-	DialerProxy string      `proxy:"dialer-proxy,omitempty"` // don't apply this option into groups, but can set a group name in a proxy
-
-	//
-	// The following parameters are used internally, assign value by the structure decoder are disallowed
-	//
-	DialerForAPI C.Dialer `proxy:"-"` // the dialer used for API usage has higher priority than all the above configurations.
-	ProviderName string   `proxy:"-"`
-}
-
-func (b *BasicOption) NewDialer(opts []dialer.Option) C.Dialer {
-	cDialer := b.DialerForAPI
-	if cDialer == nil {
-		if b.DialerProxy != "" {
-			cDialer = proxydialer.NewByName(b.DialerProxy)
-		} else {
-			cDialer = dialer.NewDialer(opts...)
-		}
-	}
-	return cDialer
+	TFO         bool   `proxy:"tfo,omitempty"`
+	MPTCP       bool   `proxy:"mptcp,omitempty"`
+	Interface   string `proxy:"interface-name,omitempty"`
+	RoutingMark int    `proxy:"routing-mark,omitempty"`
+	IPVersion   string `proxy:"ip-version,omitempty"`
+	DialerProxy string `proxy:"dialer-proxy,omitempty"` // don't apply this option into groups, but can set a group name in a proxy
 }
 
 type BaseOption struct {
@@ -219,7 +217,6 @@ func NewBase(opt BaseOption) *Base {
 type conn struct {
 	N.ExtendedConn
 	chain       C.Chain
-	pdChain     C.Chain
 	adapterAddr string
 }
 
@@ -241,15 +238,9 @@ func (c *conn) Chains() C.Chain {
 	return c.chain
 }
 
-// ProviderChains implements C.Connection
-func (c *conn) ProviderChains() C.Chain {
-	return c.pdChain
-}
-
 // AppendToChains implements C.Connection
 func (c *conn) AppendToChains(a C.ProxyAdapter) {
 	c.chain = append(c.chain, a.Name())
-	c.pdChain = append(c.pdChain, a.ProxyInfo().ProviderName)
 }
 
 func (c *conn) Upstream() any {
@@ -272,7 +263,7 @@ func NewConn(c net.Conn, a C.ProxyAdapter) C.Conn {
 	if _, ok := c.(syscall.Conn); !ok { // exclusion system conn like *net.TCPConn
 		c = N.NewDeadlineConn(c) // most conn from outbound can't handle readDeadline correctly
 	}
-	cc := &conn{N.NewExtendedConn(c), nil, nil, a.Addr()}
+	cc := &conn{N.NewExtendedConn(c), nil, a.Addr()}
 	cc.AppendToChains(a)
 	return cc
 }
@@ -280,7 +271,6 @@ func NewConn(c net.Conn, a C.ProxyAdapter) C.Conn {
 type packetConn struct {
 	N.EnhancePacketConn
 	chain       C.Chain
-	pdChain     C.Chain
 	adapterName string
 	connID      string
 	adapterAddr string
@@ -301,15 +291,9 @@ func (c *packetConn) Chains() C.Chain {
 	return c.chain
 }
 
-// ProviderChains implements C.Connection
-func (c *packetConn) ProviderChains() C.Chain {
-	return c.pdChain
-}
-
 // AppendToChains implements C.Connection
 func (c *packetConn) AppendToChains(a C.ProxyAdapter) {
 	c.chain = append(c.chain, a.Name())
-	c.pdChain = append(c.pdChain, a.ProxyInfo().ProviderName)
 }
 
 func (c *packetConn) LocalAddr() net.Addr {
@@ -338,7 +322,7 @@ func newPacketConn(pc net.PacketConn, a ProxyAdapter) C.PacketConn {
 	if _, ok := pc.(syscall.Conn); !ok { // exclusion system conn like *net.UDPConn
 		epc = N.NewDeadlineEnhancePacketConn(epc) // most conn from outbound can't handle readDeadline correctly
 	}
-	cpc := &packetConn{epc, nil, nil, a.Name(), utils.NewUUIDV4().String(), a.Addr(), a.ResolveUDP}
+	cpc := &packetConn{epc, nil, a.Name(), utils.NewUUIDV4().String(), a.Addr(), a.ResolveUDP}
 	cpc.AppendToChains(a)
 	return cpc
 }
@@ -364,8 +348,30 @@ func (p *autoCloseProxyAdapter) DialContext(ctx context.Context, metadata *C.Met
 	return c, nil
 }
 
+func (p *autoCloseProxyAdapter) DialContextWithDialer(ctx context.Context, dialer C.Dialer, metadata *C.Metadata) (_ C.Conn, err error) {
+	c, err := p.ProxyAdapter.DialContextWithDialer(ctx, dialer, metadata)
+	if err != nil {
+		return nil, err
+	}
+	if c, ok := c.(AddRef); ok {
+		c.AddRef(p)
+	}
+	return c, nil
+}
+
 func (p *autoCloseProxyAdapter) ListenPacketContext(ctx context.Context, metadata *C.Metadata) (_ C.PacketConn, err error) {
 	pc, err := p.ProxyAdapter.ListenPacketContext(ctx, metadata)
+	if err != nil {
+		return nil, err
+	}
+	if pc, ok := pc.(AddRef); ok {
+		pc.AddRef(p)
+	}
+	return pc, nil
+}
+
+func (p *autoCloseProxyAdapter) ListenPacketWithDialer(ctx context.Context, dialer C.Dialer, metadata *C.Metadata) (_ C.PacketConn, err error) {
+	pc, err := p.ProxyAdapter.ListenPacketWithDialer(ctx, dialer, metadata)
 	if err != nil {
 		return nil, err
 	}

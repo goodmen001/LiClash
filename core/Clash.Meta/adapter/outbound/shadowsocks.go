@@ -8,6 +8,8 @@ import (
 
 	N "github.com/metacubex/mihomo/common/net"
 	"github.com/metacubex/mihomo/common/structure"
+	"github.com/metacubex/mihomo/component/dialer"
+	"github.com/metacubex/mihomo/component/proxydialer"
 	C "github.com/metacubex/mihomo/constant"
 	"github.com/metacubex/mihomo/ntp"
 	gost "github.com/metacubex/mihomo/transport/gost-plugin"
@@ -189,6 +191,17 @@ func (ss *ShadowSocks) StreamConnContext(ctx context.Context, c net.Conn, metada
 
 // DialContext implements C.ProxyAdapter
 func (ss *ShadowSocks) DialContext(ctx context.Context, metadata *C.Metadata) (_ C.Conn, err error) {
+	return ss.DialContextWithDialer(ctx, dialer.NewDialer(ss.DialOptions()...), metadata)
+}
+
+// DialContextWithDialer implements C.ProxyAdapter
+func (ss *ShadowSocks) DialContextWithDialer(ctx context.Context, dialer C.Dialer, metadata *C.Metadata) (_ C.Conn, err error) {
+	if len(ss.option.DialerProxy) > 0 {
+		dialer, err = proxydialer.NewByName(ss.option.DialerProxy, dialer)
+		if err != nil {
+			return nil, err
+		}
+	}
 	var c net.Conn
 	if ss.kcptunClient != nil {
 		c, err = ss.kcptunClient.OpenStream(ctx, func(ctx context.Context) (net.PacketConn, net.Addr, error) {
@@ -200,7 +213,7 @@ func (ss *ShadowSocks) DialContext(ctx context.Context, metadata *C.Metadata) (_
 				return nil, nil, err
 			}
 
-			pc, err := ss.dialer.ListenPacket(ctx, "udp", "", addr.AddrPort())
+			pc, err := dialer.ListenPacket(ctx, "udp", "", addr.AddrPort())
 			if err != nil {
 				return nil, nil, err
 			}
@@ -208,7 +221,7 @@ func (ss *ShadowSocks) DialContext(ctx context.Context, metadata *C.Metadata) (_
 			return pc, addr, nil
 		})
 	} else {
-		c, err = ss.dialer.DialContext(ctx, "tcp", ss.addr)
+		c, err = dialer.DialContext(ctx, "tcp", ss.addr)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("%s connect error: %w", ss.addr, err)
@@ -224,14 +237,25 @@ func (ss *ShadowSocks) DialContext(ctx context.Context, metadata *C.Metadata) (_
 
 // ListenPacketContext implements C.ProxyAdapter
 func (ss *ShadowSocks) ListenPacketContext(ctx context.Context, metadata *C.Metadata) (C.PacketConn, error) {
+	return ss.ListenPacketWithDialer(ctx, dialer.NewDialer(ss.DialOptions()...), metadata)
+}
+
+// ListenPacketWithDialer implements C.ProxyAdapter
+func (ss *ShadowSocks) ListenPacketWithDialer(ctx context.Context, dialer C.Dialer, metadata *C.Metadata) (_ C.PacketConn, err error) {
 	if ss.option.UDPOverTCP {
-		tcpConn, err := ss.DialContext(ctx, metadata)
+		tcpConn, err := ss.DialContextWithDialer(ctx, dialer, metadata)
 		if err != nil {
 			return nil, err
 		}
 		return ss.ListenPacketOnStreamConn(ctx, tcpConn, metadata)
 	}
-	if err := ss.ResolveUDP(ctx, metadata); err != nil {
+	if len(ss.option.DialerProxy) > 0 {
+		dialer, err = proxydialer.NewByName(ss.option.DialerProxy, dialer)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if err = ss.ResolveUDP(ctx, metadata); err != nil {
 		return nil, err
 	}
 	addr, err := resolveUDPAddr(ctx, "udp", ss.addr, ss.prefer)
@@ -239,12 +263,17 @@ func (ss *ShadowSocks) ListenPacketContext(ctx context.Context, metadata *C.Meta
 		return nil, err
 	}
 
-	pc, err := ss.dialer.ListenPacket(ctx, "udp", "", addr.AddrPort())
+	pc, err := dialer.ListenPacket(ctx, "udp", "", addr.AddrPort())
 	if err != nil {
 		return nil, err
 	}
 	pc = ss.method.DialPacketConn(bufio.NewBindPacketConn(pc, addr))
 	return newPacketConn(pc, ss), nil
+}
+
+// SupportWithDialer implements C.ProxyAdapter
+func (ss *ShadowSocks) SupportWithDialer() C.NetWork {
+	return C.ALLNet
 }
 
 // ProxyInfo implements C.ProxyAdapter
@@ -453,18 +482,17 @@ func NewShadowSocks(option ShadowSocksOption) (*ShadowSocks, error) {
 		return nil, fmt.Errorf("ss %s unknown udp over tcp protocol version: %d", addr, option.UDPOverTCPVersion)
 	}
 
-	outbound := &ShadowSocks{
+	return &ShadowSocks{
 		Base: &Base{
 			name:   option.Name,
 			addr:   addr,
 			tp:     C.Shadowsocks,
-			pdName: option.ProviderName,
 			udp:    option.UDP,
 			tfo:    option.TFO,
 			mpTcp:  option.MPTCP,
 			iface:  option.Interface,
 			rmark:  option.RoutingMark,
-			prefer: option.IPVersion,
+			prefer: C.NewDNSPrefer(option.IPVersion),
 		},
 		method: method,
 
@@ -476,7 +504,5 @@ func NewShadowSocks(option ShadowSocksOption) (*ShadowSocks, error) {
 		shadowTLSOption: shadowTLSOpt,
 		restlsConfig:    restlsConfig,
 		kcptunClient:    kcptunClient,
-	}
-	outbound.dialer = option.NewDialer(outbound.DialOptions())
-	return outbound, nil
+	}, nil
 }

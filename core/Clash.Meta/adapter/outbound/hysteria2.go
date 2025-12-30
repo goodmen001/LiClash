@@ -2,16 +2,19 @@ package outbound
 
 import (
 	"context"
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"net"
 	"strconv"
 	"time"
 
-	N "github.com/metacubex/mihomo/common/net"
+	CN "github.com/metacubex/mihomo/common/net"
 	"github.com/metacubex/mihomo/common/utils"
 	"github.com/metacubex/mihomo/component/ca"
+	"github.com/metacubex/mihomo/component/dialer"
 	"github.com/metacubex/mihomo/component/proxydialer"
+	tlsC "github.com/metacubex/mihomo/component/tls"
 	C "github.com/metacubex/mihomo/constant"
 	"github.com/metacubex/mihomo/log"
 	tuicCommon "github.com/metacubex/mihomo/transport/tuic/common"
@@ -19,7 +22,6 @@ import (
 	"github.com/metacubex/quic-go"
 	"github.com/metacubex/sing-quic/hysteria2"
 	M "github.com/metacubex/sing/common/metadata"
-	"github.com/metacubex/tls"
 )
 
 func init() {
@@ -34,6 +36,7 @@ type Hysteria2 struct {
 
 	option *Hysteria2Option
 	client *hysteria2.Client
+	dialer proxydialer.SingDialer
 }
 
 type Hysteria2Option struct {
@@ -84,7 +87,7 @@ func (h *Hysteria2) ListenPacketContext(ctx context.Context, metadata *C.Metadat
 	if pc == nil {
 		return nil, errors.New("packetConn is nil")
 	}
-	return newPacketConn(N.NewThreadSafePacketConn(pc), h), nil
+	return newPacketConn(CN.NewThreadSafePacketConn(pc), h), nil
 }
 
 // Close implements C.ProxyAdapter
@@ -109,16 +112,16 @@ func NewHysteria2(option Hysteria2Option) (*Hysteria2, error) {
 			name:   option.Name,
 			addr:   addr,
 			tp:     C.Hysteria2,
-			pdName: option.ProviderName,
 			udp:    true,
 			iface:  option.Interface,
 			rmark:  option.RoutingMark,
-			prefer: option.IPVersion,
+			prefer: C.NewDNSPrefer(option.IPVersion),
 		},
 		option: &option,
 	}
-	outbound.dialer = option.NewDialer(outbound.DialOptions())
-	singDialer := proxydialer.NewSingDialer(outbound.dialer)
+
+	singDialer := proxydialer.NewByNameSingDialer(option.DialerProxy, dialer.NewDialer(outbound.DialOptions()...))
+	outbound.dialer = singDialer
 
 	var salamanderPassword string
 	if len(option.Obfs) > 0 {
@@ -156,7 +159,7 @@ func NewHysteria2(option Hysteria2Option) (*Hysteria2, error) {
 		tlsConfig.NextProtos = option.ALPN
 	}
 
-	tlsClientConfig := tlsConfig
+	tlsClientConfig := tlsC.UConfig(tlsConfig)
 	echConfig, err := option.ECHOpts.Parse()
 	if err != nil {
 		return nil, err
@@ -189,7 +192,7 @@ func NewHysteria2(option Hysteria2Option) (*Hysteria2, error) {
 		CWND:               option.CWND,
 		UdpMTU:             option.UdpMTU,
 		ServerAddress: func(ctx context.Context) (*net.UDPAddr, error) {
-			udpAddr, err := resolveUDPAddr(ctx, "udp", addr, option.IPVersion)
+			udpAddr, err := resolveUDPAddr(ctx, "udp", addr, C.NewDNSPrefer(option.IPVersion))
 			if err != nil {
 				return nil, err
 			}

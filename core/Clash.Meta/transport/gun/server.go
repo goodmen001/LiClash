@@ -3,6 +3,7 @@ package gun
 import (
 	"io"
 	"net"
+	"net/http"
 	"strings"
 	"sync"
 	"time"
@@ -11,8 +12,8 @@ import (
 	N "github.com/metacubex/mihomo/common/net"
 	C "github.com/metacubex/mihomo/constant"
 
-	"github.com/metacubex/http"
-	"github.com/metacubex/http/h2c"
+	"golang.org/x/net/http2"
+	"golang.org/x/net/http2/h2c"
 )
 
 const idleTimeout = 30 * time.Second
@@ -24,7 +25,7 @@ type ServerOption struct {
 }
 
 func NewServerHandler(options ServerOption) http.Handler {
-	path := ServiceNameToPath(options.ServiceName)
+	path := "/" + options.ServiceName + "/Tun"
 	connHandler := options.ConnHandler
 	httpHandler := options.HttpHandler
 	if httpHandler == nil {
@@ -71,7 +72,7 @@ func NewServerHandler(options ServerOption) http.Handler {
 		}
 
 		httpHandler.ServeHTTP(writer, request)
-	}), &http.Http2Server{
+	}), &http2.Server{
 		IdleTimeout: idleTimeout,
 	})
 }

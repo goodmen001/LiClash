@@ -34,7 +34,7 @@ func TestNewMieru(t *testing.T) {
 				Name:      "test",
 				Server:    "example.com",
 				Port:      10003,
-				Transport: "UDP",
+				Transport: "TCP",
 				UserName:  "test",
 				Password:  "test",
 			},

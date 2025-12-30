@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
+	"net/http"
 	"net/url"
 	"strings"
 	"time"
@@ -16,8 +17,6 @@ import (
 	"github.com/metacubex/mihomo/component/ca"
 	C "github.com/metacubex/mihomo/constant"
 	"github.com/metacubex/mihomo/log"
-
-	"github.com/metacubex/http"
 )
 
 var UnifiedDelay = atomic.NewBool(false)
@@ -154,9 +153,8 @@ func (p *Proxy) MarshalJSON() ([]byte, error) {
 	mapping["mptcp"] = proxyInfo.MPTCP
 	mapping["smux"] = proxyInfo.SMUX
 	mapping["interface"] = proxyInfo.Interface
-	mapping["routing-mark"] = proxyInfo.RoutingMark
-	mapping["provider-name"] = proxyInfo.ProviderName
 	mapping["dialer-proxy"] = proxyInfo.DialerProxy
+	mapping["routing-mark"] = proxyInfo.RoutingMark
 
 	return json.Marshal(mapping)
 }
@@ -183,12 +181,14 @@ func (p *Proxy) URLTest(ctx context.Context, url string, expectedStatus utils.In
 			p.history.Pop()
 		}
 
-		state, _ := p.extra.LoadOrStoreFn(url, func() *internalProxyState {
-			return &internalProxyState{
+		state, ok := p.extra.Load(url)
+		if !ok {
+			state = &internalProxyState{
 				history: queue.New[C.DelayHistory](defaultHistoriesNum),
 				alive:   atomic.NewBool(true),
 			}
-		})
+			p.extra.Store(url, state)
+		}
 
 		if !satisfied {
 			record.Delay = 0

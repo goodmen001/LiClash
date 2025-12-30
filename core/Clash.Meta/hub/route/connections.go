@@ -3,14 +3,16 @@ package route
 import (
 	"bytes"
 	"encoding/json"
+	"net/http"
 	"strconv"
 	"time"
 
 	"github.com/metacubex/mihomo/tunnel/statistic"
 
-	"github.com/metacubex/chi"
-	"github.com/metacubex/chi/render"
-	"github.com/metacubex/http"
+	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/render"
+	"github.com/gobwas/ws"
+	"github.com/gobwas/ws/wsutil"
 )
 
 func connectionRouter() http.Handler {
@@ -28,7 +30,7 @@ func getConnections(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	conn, _, err := wsUpgrade(r, w)
+	conn, _, _, err := ws.UpgradeHTTP(r, w)
 	if err != nil {
 		return
 	}
@@ -54,7 +56,7 @@ func getConnections(w http.ResponseWriter, r *http.Request) {
 			return err
 		}
 
-		return wsWriteServerText(conn, buf.Bytes())
+		return wsutil.WriteMessage(conn, ws.StateServerSide, ws.OpText, buf.Bytes())
 	}
 
 	if err := sendSnapshot(); err != nil {

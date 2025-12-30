@@ -2,6 +2,7 @@ package outbound
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/base64"
 	"fmt"
 	"net"
@@ -12,6 +13,8 @@ import (
 	"github.com/metacubex/mihomo/component/ca"
 	"github.com/metacubex/mihomo/component/dialer"
 	"github.com/metacubex/mihomo/component/ech"
+	"github.com/metacubex/mihomo/component/proxydialer"
+	tlsC "github.com/metacubex/mihomo/component/tls"
 	C "github.com/metacubex/mihomo/constant"
 	"github.com/metacubex/mihomo/log"
 	hyCongestion "github.com/metacubex/mihomo/transport/hysteria/congestion"
@@ -20,8 +23,6 @@ import (
 	"github.com/metacubex/mihomo/transport/hysteria/pmtud_fix"
 	"github.com/metacubex/mihomo/transport/hysteria/transport"
 	"github.com/metacubex/mihomo/transport/hysteria/utils"
-
-	"github.com/metacubex/tls"
 
 	"github.com/metacubex/quic-go"
 	"github.com/metacubex/quic-go/congestion"
@@ -45,7 +46,7 @@ type Hysteria struct {
 	option *HysteriaOption
 	client *core.Client
 
-	tlsConfig *tls.Config
+	tlsConfig *tlsC.Config
 	echConfig *ech.Config
 }
 
@@ -73,8 +74,16 @@ func (h *Hysteria) genHdc(ctx context.Context) utils.PacketDialer {
 	return &hyDialerWithContext{
 		ctx: context.Background(),
 		hyDialer: func(network string, rAddr net.Addr) (net.PacketConn, error) {
+			var err error
+			var cDialer C.Dialer = dialer.NewDialer(h.DialOptions()...)
+			if len(h.option.DialerProxy) > 0 {
+				cDialer, err = proxydialer.NewByName(h.option.DialerProxy, cDialer)
+				if err != nil {
+					return nil, err
+				}
+			}
 			rAddrPort, _ := netip.ParseAddrPort(rAddr.String())
-			return h.dialer.ListenPacket(ctx, network, "", rAddrPort)
+			return cDialer.ListenPacket(ctx, network, "", rAddrPort)
 		},
 		remoteAddr: func(addr string) (net.Addr, error) {
 			udpAddr, err := resolveUDPAddr(ctx, "udp", addr, h.prefer)
@@ -175,7 +184,7 @@ func NewHysteria(option HysteriaOption) (*Hysteria, error) {
 	if err != nil {
 		return nil, err
 	}
-	tlsClientConfig := tlsConfig
+	tlsClientConfig := tlsC.UConfig(tlsConfig)
 
 	quicConfig := &quic.Config{
 		InitialStreamReceiveWindow:     uint64(option.ReceiveWindowConn),
@@ -243,19 +252,17 @@ func NewHysteria(option HysteriaOption) (*Hysteria, error) {
 			name:   option.Name,
 			addr:   addr,
 			tp:     C.Hysteria,
-			pdName: option.ProviderName,
 			udp:    true,
 			tfo:    option.FastOpen,
 			iface:  option.Interface,
 			rmark:  option.RoutingMark,
-			prefer: option.IPVersion,
+			prefer: C.NewDNSPrefer(option.IPVersion),
 		},
 		option:    &option,
 		client:    client,
 		tlsConfig: tlsClientConfig,
 		echConfig: echConfig,
 	}
-	outbound.dialer = option.NewDialer(outbound.DialOptions())
 
 	return outbound, nil
 }

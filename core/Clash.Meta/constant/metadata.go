@@ -39,7 +39,6 @@ const (
 	HYSTERIA2
 	ANYTLS
 	MIERU
-	SUDOKU
 	INNER
 )
 
@@ -113,8 +112,6 @@ func (t Type) String() string {
 		return "AnyTLS"
 	case MIERU:
 		return "Mieru"
-	case SUDOKU:
-		return "Sudoku"
 	case INNER:
 		return "Inner"
 	default:
@@ -157,8 +154,6 @@ func ParseType(t string) (*Type, error) {
 		res = ANYTLS
 	case "MIERU":
 		res = MIERU
-	case "SUDOKU":
-		res = SUDOKU
 	case "INNER":
 		res = INNER
 	default:

@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 	"net"
+	"net/http"
 	URL "net/url"
 	"runtime"
 	"strings"
@@ -12,8 +13,6 @@ import (
 	"github.com/metacubex/mihomo/component/ca"
 	"github.com/metacubex/mihomo/component/dialer"
 	"github.com/metacubex/mihomo/listener/inner"
-
-	"github.com/metacubex/http"
 )
 
 var (

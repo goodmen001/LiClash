@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/metacubex/mihomo/component/ech"
-	"github.com/metacubex/mihomo/transport/sudoku"
 	"github.com/metacubex/mihomo/transport/vless/encryption"
 
 	"github.com/gofrs/uuid/v5"
@@ -13,7 +12,7 @@ import (
 
 func Main(args []string) {
 	if len(args) < 1 {
-		panic("Using: generate uuid/reality-keypair/wg-keypair/ech-keypair/vless-mlkem768/vless-x25519/sudoku-keypair")
+		panic("Using: generate uuid/reality-keypair/wg-keypair/ech-keypair/vless-mlkem768/vless-x25519")
 	}
 	switch args[0] {
 	case "uuid":
@@ -70,13 +69,5 @@ func Main(args []string) {
 		fmt.Println("PrivateKey: " + privateKeyBase64)
 		fmt.Println("Password: " + passwordBase64)
 		fmt.Println("Hash32: " + hash32Base64)
-	case "sudoku-keypair":
-		privateKey, publicKey, err := sudoku.GenKeyPair()
-		if err != nil {
-			panic(err)
-		}
-		// Output: Available Private Key for client, Master Public Key for server
-		fmt.Println("PrivateKey: " + privateKey)
-		fmt.Println("PublicKey: " + publicKey)
 	}
 }

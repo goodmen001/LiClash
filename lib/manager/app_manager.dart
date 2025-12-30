@@ -10,6 +10,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_acrylic/widgets/transparent_macos_sidebar.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:lottie/lottie.dart';
 
 class AppStateManager extends ConsumerStatefulWidget {
   final Widget child;
@@ -257,19 +258,7 @@ class AppSidebarContainer extends ConsumerWidget {
                   const SizedBox(
                     height: 16,
                   ),
-                  IconButton(
-                    onPressed: () {
-                      ref.read(appSettingProvider.notifier).updateState(
-                            (state) => state.copyWith(
-                              showLabel: !state.showLabel,
-                            ),
-                          );
-                    },
-                    icon: Icon(
-                      Icons.menu,
-                      color: context.colorScheme.onSurfaceVariant,
-                    ),
-                  ),
+                  _buildHeartbeatIndicator(context, ref),
                   const SizedBox(
                     height: 16,
                   ),
@@ -286,6 +275,34 @@ class AppSidebarContainer extends ConsumerWidget {
           ),
         )
       ],
+    );
+  }
+
+  Widget _buildHeartbeatIndicator(BuildContext context, WidgetRef ref) {
+    final isStart = ref.watch(runTimeProvider.select((state) => state != null));
+    final brightness = Theme.of(context).brightness;
+    
+    // 根据主题模式选择颜色
+    final color = brightness == Brightness.dark 
+        ? Colors.white 
+        : Colors.black;
+
+    return SizedBox(
+      width: 48,
+      height: 48,
+      child: Lottie.asset(
+        'assets/lottie/heartbeat.json',
+        animate: isStart,
+        repeat: true,
+        delegates: LottieDelegates(
+          values: [
+            ValueDelegate.color(
+              const ['**', 'Shape', '**'],
+              value: color,
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

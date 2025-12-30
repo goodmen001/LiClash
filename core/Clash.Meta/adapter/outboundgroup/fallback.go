@@ -150,14 +150,6 @@ func (f *Fallback) ForceSet(name string) {
 	f.selected = name
 }
 
-func (f *Fallback) Providers() []P.ProxyProvider {
-	return f.providers
-}
-
-func (f *Fallback) Proxies() []C.Proxy {
-	return f.GetProxies(false)
-}
-
 func NewFallback(option *GroupCommonOption, providers []P.ProxyProvider) *Fallback {
 	return &Fallback{
 		GroupBase: NewGroupBase(GroupBaseOption{

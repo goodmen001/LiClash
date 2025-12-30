@@ -4,10 +4,12 @@ import (
 	"bytes"
 	"context"
 	"crypto/rand"
+	"crypto/tls"
 	"encoding/base64"
 	"fmt"
 	"io"
 	"net"
+	"net/http"
 	"net/netip"
 	"strconv"
 	"sync"
@@ -21,13 +23,13 @@ import (
 	"github.com/metacubex/mihomo/component/dialer"
 	"github.com/metacubex/mihomo/component/ech"
 	"github.com/metacubex/mihomo/component/generator"
+	tlsC "github.com/metacubex/mihomo/component/tls"
 	C "github.com/metacubex/mihomo/constant"
 
-	"github.com/metacubex/chi"
-	"github.com/metacubex/chi/render"
-	"github.com/metacubex/http"
-	"github.com/metacubex/tls"
+	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/render"
 	"github.com/stretchr/testify/assert"
+	"golang.org/x/net/http2"
 )
 
 var httpPath = "/inbound_test"
@@ -57,13 +59,11 @@ func init() {
 }
 
 type TestTunnel struct {
-	HandleTCPConnFn    func(conn net.Conn, metadata *C.Metadata)
-	HandleUDPPacketFn  func(packet C.UDPPacket, metadata *C.Metadata)
-	NatTableFn         func() C.NatTable
-	CloseFn            func() error
-	DoTestFn           func(t *testing.T, proxy C.ProxyAdapter)
-	DoSequentialTestFn func(t *testing.T, proxy C.ProxyAdapter)
-	DoConcurrentTestFn func(t *testing.T, proxy C.ProxyAdapter)
+	HandleTCPConnFn   func(conn net.Conn, metadata *C.Metadata)
+	HandleUDPPacketFn func(packet C.UDPPacket, metadata *C.Metadata)
+	NatTableFn        func() C.NatTable
+	CloseFn           func() error
+	DoTestFn          func(t *testing.T, proxy C.ProxyAdapter)
 }
 
 func (tt *TestTunnel) HandleTCPConn(conn net.Conn, metadata *C.Metadata) {
@@ -84,14 +84,6 @@ func (tt *TestTunnel) Close() error {
 
 func (tt *TestTunnel) DoTest(t *testing.T, proxy C.ProxyAdapter) {
 	tt.DoTestFn(t, proxy)
-}
-
-func (tt *TestTunnel) DoSequentialTest(t *testing.T, proxy C.ProxyAdapter) {
-	tt.DoSequentialTestFn(t, proxy)
-}
-
-func (tt *TestTunnel) DoConcurrentTest(t *testing.T, proxy C.ProxyAdapter) {
-	tt.DoConcurrentTestFn(t, proxy)
 }
 
 type TestTunnelListener struct {
@@ -155,9 +147,9 @@ func NewHttpTestTunnel() *TestTunnel {
 		io.Copy(io.Discard, r.Body)
 		render.Data(w, r, httpData[:size])
 	})
-	//h2Server := &http.Http2Server{}
+	h2Server := &http2.Server{}
 	server := http.Server{Handler: r}
-	//_ = http.Http2ConfigureServer(&server, h2Server)
+	_ = http2.ConfigureServer(&server, h2Server)
 	go server.Serve(ln)
 	testFn := func(t *testing.T, proxy C.ProxyAdapter, proto string, size int) {
 		req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("%s://%s%s?size=%d", proto, remoteAddr, httpPath, size), bytes.NewReader(httpData[:size]))
@@ -214,9 +206,6 @@ func NewHttpTestTunnel() *TestTunnel {
 		defer resp.Body.Close()
 
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
-		if proto == "https" { // ensure server using http2
-			assert.Equal(t, 2, resp.ProtoMajor)
-		}
 
 		data, err := io.ReadAll(resp.Body)
 		if !assert.NoError(t, err) {
@@ -224,40 +213,6 @@ func NewHttpTestTunnel() *TestTunnel {
 		}
 		assert.Equal(t, httpData[:size], data)
 	}
-
-	sequentialTestFn := func(t *testing.T, proxy C.ProxyAdapter) {
-		// Sequential testing for debugging
-		t.Run("Sequential", func(t *testing.T) {
-			testFn(t, proxy, "http", len(httpData))
-			testFn(t, proxy, "https", len(httpData))
-		})
-	}
-
-	concurrentTestFn := func(t *testing.T, proxy C.ProxyAdapter) {
-		// Concurrent testing to detect stress
-		t.Run("Concurrent", func(t *testing.T) {
-			wg := sync.WaitGroup{}
-			num := len(httpData) / 1024
-			for i := 1; i <= num; i++ {
-				i := i
-				wg.Add(1)
-				go func() {
-					testFn(t, proxy, "https", i*1024)
-					defer wg.Done()
-				}()
-			}
-			for i := 1; i <= num; i++ {
-				i := i
-				wg.Add(1)
-				go func() {
-					testFn(t, proxy, "http", i*1024)
-					defer wg.Done()
-				}()
-			}
-			wg.Wait()
-		})
-	}
-
 	tunnel := &TestTunnel{
 		HandleTCPConnFn: func(conn net.Conn, metadata *C.Metadata) {
 			defer conn.Close()
@@ -269,7 +224,7 @@ func NewHttpTestTunnel() *TestTunnel {
 				ch:   make(chan struct{}),
 			}
 			if metadata.DstPort == 443 {
-				tlsConn := tls.Server(c, tlsConfig)
+				tlsConn := tlsC.Server(c, tlsC.UConfig(tlsConfig))
 				if metadata.Host == realityDest { // ignore the tls handshake error for realityDest
 					if realityRealDial {
 						rconn, err := dialer.DialContext(ctx, "tcp", metadata.RemoteAddress())
@@ -285,12 +240,11 @@ func NewHttpTestTunnel() *TestTunnel {
 				if err := tlsConn.HandshakeContext(ctx); err != nil {
 					return
 				}
-				//if tlsConn.ConnectionState().NegotiatedProtocol == http.Http2NextProtoTLS {
-				//	h2Server.ServeConn(tlsConn, &http.Http2ServeConnOpts{BaseConfig: &server})
-				//} else {
-				//	ln.ch <- tlsConn
-				//}
-				ln.ch <- tlsConn
+				if tlsConn.ConnectionState().NegotiatedProtocol == http2.NextProtoTLS {
+					h2Server.ServeConn(tlsConn, &http2.ServeConnOpts{BaseConfig: &server})
+				} else {
+					ln.ch <- tlsConn
+				}
 			} else {
 				ln.ch <- c
 			}
@@ -298,11 +252,36 @@ func NewHttpTestTunnel() *TestTunnel {
 		},
 		CloseFn: ln.Close,
 		DoTestFn: func(t *testing.T, proxy C.ProxyAdapter) {
-			sequentialTestFn(t, proxy)
-			concurrentTestFn(t, proxy)
+
+			// Sequential testing for debugging
+			t.Run("Sequential", func(t *testing.T) {
+				testFn(t, proxy, "http", len(httpData))
+				testFn(t, proxy, "https", len(httpData))
+			})
+
+			// Concurrent testing to detect stress
+			t.Run("Concurrent", func(t *testing.T) {
+				wg := sync.WaitGroup{}
+				num := len(httpData) / 1024
+				for i := 1; i <= num; i++ {
+					i := i
+					wg.Add(1)
+					go func() {
+						testFn(t, proxy, "https", i*1024)
+						defer wg.Done()
+					}()
+				}
+				for i := 1; i <= num; i++ {
+					i := i
+					wg.Add(1)
+					go func() {
+						testFn(t, proxy, "http", i*1024)
+						defer wg.Done()
+					}()
+				}
+				wg.Wait()
+			})
 		},
-		DoSequentialTestFn: sequentialTestFn,
-		DoConcurrentTestFn: concurrentTestFn,
 	}
 	return tunnel
 }

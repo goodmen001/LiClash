@@ -2,15 +2,19 @@ package outbound
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"net"
+	"net/http"
 	"strconv"
 
 	"github.com/metacubex/mihomo/common/convert"
 	N "github.com/metacubex/mihomo/common/net"
 	"github.com/metacubex/mihomo/common/utils"
 	"github.com/metacubex/mihomo/component/ca"
+	"github.com/metacubex/mihomo/component/dialer"
 	"github.com/metacubex/mihomo/component/ech"
+	"github.com/metacubex/mihomo/component/proxydialer"
 	tlsC "github.com/metacubex/mihomo/component/tls"
 	C "github.com/metacubex/mihomo/constant"
 	"github.com/metacubex/mihomo/transport/gun"
@@ -18,11 +22,9 @@ import (
 	"github.com/metacubex/mihomo/transport/vless/encryption"
 	"github.com/metacubex/mihomo/transport/vmess"
 
-	"github.com/metacubex/http"
 	vmessSing "github.com/metacubex/sing-vmess"
 	"github.com/metacubex/sing-vmess/packetaddr"
 	M "github.com/metacubex/sing/common/metadata"
-	"github.com/metacubex/tls"
 )
 
 type Vless struct {
@@ -250,7 +252,18 @@ func (v *Vless) DialContext(ctx context.Context, metadata *C.Metadata) (_ C.Conn
 
 		return NewConn(c, v), nil
 	}
-	c, err = v.dialer.DialContext(ctx, "tcp", v.addr)
+	return v.DialContextWithDialer(ctx, dialer.NewDialer(v.DialOptions()...), metadata)
+}
+
+// DialContextWithDialer implements C.ProxyAdapter
+func (v *Vless) DialContextWithDialer(ctx context.Context, dialer C.Dialer, metadata *C.Metadata) (_ C.Conn, err error) {
+	if len(v.option.DialerProxy) > 0 {
+		dialer, err = proxydialer.NewByName(v.option.DialerProxy, dialer)
+		if err != nil {
+			return nil, err
+		}
+	}
+	c, err := dialer.DialContext(ctx, "tcp", v.addr)
 	if err != nil {
 		return nil, fmt.Errorf("%s connect error: %s", v.addr, err.Error())
 	}
@@ -288,12 +301,23 @@ func (v *Vless) ListenPacketContext(ctx context.Context, metadata *C.Metadata) (
 
 		return v.ListenPacketOnStreamConn(ctx, c, metadata)
 	}
+	return v.ListenPacketWithDialer(ctx, dialer.NewDialer(v.DialOptions()...), metadata)
+}
+
+// ListenPacketWithDialer implements C.ProxyAdapter
+func (v *Vless) ListenPacketWithDialer(ctx context.Context, dialer C.Dialer, metadata *C.Metadata) (_ C.PacketConn, err error) {
+	if len(v.option.DialerProxy) > 0 {
+		dialer, err = proxydialer.NewByName(v.option.DialerProxy, dialer)
+		if err != nil {
+			return nil, err
+		}
+	}
 
 	if err = v.ResolveUDP(ctx, metadata); err != nil {
 		return nil, err
 	}
 
-	c, err = v.dialer.DialContext(ctx, "tcp", v.addr)
+	c, err := dialer.DialContext(ctx, "tcp", v.addr)
 	if err != nil {
 		return nil, fmt.Errorf("%s connect error: %s", v.addr, err.Error())
 	}
@@ -307,6 +331,11 @@ func (v *Vless) ListenPacketContext(ctx context.Context, metadata *C.Metadata) (
 	}
 
 	return v.ListenPacketOnStreamConn(ctx, c, metadata)
+}
+
+// SupportWithDialer implements C.ProxyAdapter
+func (v *Vless) SupportWithDialer() C.NetWork {
+	return C.ALLNet
 }
 
 // ListenPacketOnStreamConn implements C.ProxyAdapter
@@ -417,19 +446,17 @@ func NewVless(option VlessOption) (*Vless, error) {
 			name:   option.Name,
 			addr:   net.JoinHostPort(option.Server, strconv.Itoa(option.Port)),
 			tp:     C.Vless,
-			pdName: option.ProviderName,
 			udp:    option.UDP,
 			xudp:   option.XUDP,
 			tfo:    option.TFO,
 			mpTcp:  option.MPTCP,
 			iface:  option.Interface,
 			rmark:  option.RoutingMark,
-			prefer: option.IPVersion,
+			prefer: C.NewDNSPrefer(option.IPVersion),
 		},
 		client: client,
 		option: &option,
 	}
-	v.dialer = option.NewDialer(v.DialOptions())
 
 	v.encryption, err = encryption.NewClient(option.Encryption)
 	if err != nil {
@@ -453,7 +480,15 @@ func NewVless(option VlessOption) (*Vless, error) {
 		}
 	case "grpc":
 		dialFn := func(ctx context.Context, network, addr string) (net.Conn, error) {
-			c, err := v.dialer.DialContext(ctx, "tcp", v.addr)
+			var err error
+			var cDialer C.Dialer = dialer.NewDialer(v.DialOptions()...)
+			if len(v.option.DialerProxy) > 0 {
+				cDialer, err = proxydialer.NewByName(v.option.DialerProxy, cDialer)
+				if err != nil {
+					return nil, err
+				}
+			}
+			c, err := cDialer.DialContext(ctx, "tcp", v.addr)
 			if err != nil {
 				return nil, fmt.Errorf("%s connect error: %s", v.addr, err.Error())
 			}

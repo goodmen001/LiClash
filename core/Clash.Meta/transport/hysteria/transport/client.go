@@ -5,6 +5,7 @@ import (
 	"net"
 	"time"
 
+	tlsC "github.com/metacubex/mihomo/component/tls"
 	"github.com/metacubex/mihomo/transport/hysteria/conns/faketcp"
 	"github.com/metacubex/mihomo/transport/hysteria/conns/udp"
 	"github.com/metacubex/mihomo/transport/hysteria/conns/wechat"
@@ -12,7 +13,6 @@ import (
 	"github.com/metacubex/mihomo/transport/hysteria/utils"
 
 	"github.com/metacubex/quic-go"
-	"github.com/metacubex/tls"
 )
 
 type ClientTransport struct{}
@@ -62,7 +62,7 @@ func (ct *ClientTransport) quicPacketConn(proto string, rAddr net.Addr, serverPo
 	}
 }
 
-func (ct *ClientTransport) QUICDial(proto string, server string, serverPorts string, tlsConfig *tls.Config, quicConfig *quic.Config, obfs obfsPkg.Obfuscator, hopInterval time.Duration, dialer utils.PacketDialer) (*quic.Conn, error) {
+func (ct *ClientTransport) QUICDial(proto string, server string, serverPorts string, tlsConfig *tlsC.Config, quicConfig *quic.Config, obfs obfsPkg.Obfuscator, hopInterval time.Duration, dialer utils.PacketDialer) (*quic.Conn, error) {
 	serverUDPAddr, err := dialer.RemoteAddr(server)
 	if err != nil {
 		return nil, err

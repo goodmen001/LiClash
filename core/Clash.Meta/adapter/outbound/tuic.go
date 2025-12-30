@@ -2,6 +2,7 @@ package outbound
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"math"
 	"net"
@@ -9,7 +10,10 @@ import (
 	"time"
 
 	"github.com/metacubex/mihomo/component/ca"
+	"github.com/metacubex/mihomo/component/dialer"
 	"github.com/metacubex/mihomo/component/ech"
+	"github.com/metacubex/mihomo/component/proxydialer"
+	tlsC "github.com/metacubex/mihomo/component/tls"
 	C "github.com/metacubex/mihomo/constant"
 	"github.com/metacubex/mihomo/transport/tuic"
 
@@ -17,7 +21,6 @@ import (
 	"github.com/metacubex/quic-go"
 	M "github.com/metacubex/sing/common/metadata"
 	"github.com/metacubex/sing/common/uot"
-	"github.com/metacubex/tls"
 )
 
 type Tuic struct {
@@ -25,7 +28,7 @@ type Tuic struct {
 	option *TuicOption
 	client *tuic.PoolClient
 
-	tlsConfig *tls.Config
+	tlsConfig *tlsC.Config
 	echConfig *ech.Config
 }
 
@@ -67,7 +70,12 @@ type TuicOption struct {
 
 // DialContext implements C.ProxyAdapter
 func (t *Tuic) DialContext(ctx context.Context, metadata *C.Metadata) (C.Conn, error) {
-	conn, err := t.client.DialContext(ctx, metadata)
+	return t.DialContextWithDialer(ctx, dialer.NewDialer(t.DialOptions()...), metadata)
+}
+
+// DialContextWithDialer implements C.ProxyAdapter
+func (t *Tuic) DialContextWithDialer(ctx context.Context, dialer C.Dialer, metadata *C.Metadata) (C.Conn, error) {
+	conn, err := t.client.DialContextWithDialer(ctx, metadata, dialer, t.dialWithDialer)
 	if err != nil {
 		return nil, err
 	}
@@ -76,6 +84,11 @@ func (t *Tuic) DialContext(ctx context.Context, metadata *C.Metadata) (C.Conn, e
 
 // ListenPacketContext implements C.ProxyAdapter
 func (t *Tuic) ListenPacketContext(ctx context.Context, metadata *C.Metadata) (_ C.PacketConn, err error) {
+	return t.ListenPacketWithDialer(ctx, dialer.NewDialer(t.DialOptions()...), metadata)
+}
+
+// ListenPacketWithDialer implements C.ProxyAdapter
+func (t *Tuic) ListenPacketWithDialer(ctx context.Context, dialer C.Dialer, metadata *C.Metadata) (_ C.PacketConn, err error) {
 	if err = t.ResolveUDP(ctx, metadata); err != nil {
 		return nil, err
 	}
@@ -85,7 +98,7 @@ func (t *Tuic) ListenPacketContext(ctx context.Context, metadata *C.Metadata) (_
 		uotMetadata := *metadata
 		uotMetadata.Host = uotDestination.Fqdn
 		uotMetadata.DstPort = uotDestination.Port
-		c, err := t.DialContext(ctx, &uotMetadata)
+		c, err := t.DialContextWithDialer(ctx, dialer, &uotMetadata)
 		if err != nil {
 			return nil, err
 		}
@@ -99,14 +112,25 @@ func (t *Tuic) ListenPacketContext(ctx context.Context, metadata *C.Metadata) (_
 			return newPacketConn(uot.NewLazyConn(c, uot.Request{Destination: destination}), t), nil
 		}
 	}
-	pc, err := t.client.ListenPacket(ctx, metadata)
+	pc, err := t.client.ListenPacketWithDialer(ctx, metadata, dialer, t.dialWithDialer)
 	if err != nil {
 		return nil, err
 	}
 	return newPacketConn(pc, t), nil
 }
 
-func (t *Tuic) dial(ctx context.Context) (transport *quic.Transport, addr net.Addr, err error) {
+// SupportWithDialer implements C.ProxyAdapter
+func (t *Tuic) SupportWithDialer() C.NetWork {
+	return C.ALLNet
+}
+
+func (t *Tuic) dialWithDialer(ctx context.Context, dialer C.Dialer) (transport *quic.Transport, addr net.Addr, err error) {
+	if len(t.option.DialerProxy) > 0 {
+		dialer, err = proxydialer.NewByName(t.option.DialerProxy, dialer)
+		if err != nil {
+			return nil, nil, err
+		}
+	}
 	udpAddr, err := resolveUDPAddr(ctx, "udp", t.addr, t.prefer)
 	if err != nil {
 		return nil, nil, err
@@ -117,7 +141,7 @@ func (t *Tuic) dial(ctx context.Context) (transport *quic.Transport, addr net.Ad
 	}
 	addr = udpAddr
 	var pc net.PacketConn
-	pc, err = t.dialer.ListenPacket(ctx, "udp", "", udpAddr.AddrPort())
+	pc, err = dialer.ListenPacket(ctx, "udp", "", udpAddr.AddrPort())
 	if err != nil {
 		return nil, nil, err
 	}
@@ -232,7 +256,7 @@ func NewTuic(option TuicOption) (*Tuic, error) {
 		tlsConfig.InsecureSkipVerify = true // tls: either ServerName or InsecureSkipVerify must be specified in the tls.Config
 	}
 
-	tlsClientConfig := tlsConfig
+	tlsClientConfig := tlsC.UConfig(tlsConfig)
 	echConfig, err := option.ECHOpts.Parse()
 	if err != nil {
 		return nil, err
@@ -251,18 +275,16 @@ func NewTuic(option TuicOption) (*Tuic, error) {
 			name:   option.Name,
 			addr:   addr,
 			tp:     C.Tuic,
-			pdName: option.ProviderName,
 			udp:    true,
 			tfo:    option.FastOpen,
 			iface:  option.Interface,
 			rmark:  option.RoutingMark,
-			prefer: option.IPVersion,
+			prefer: C.NewDNSPrefer(option.IPVersion),
 		},
 		option:    &option,
 		tlsConfig: tlsClientConfig,
 		echConfig: echConfig,
 	}
-	t.dialer = option.NewDialer(t.DialOptions())
 
 	clientMaxOpenStreams := int64(option.MaxOpenStreams)
 
@@ -291,7 +313,7 @@ func NewTuic(option TuicOption) (*Tuic, error) {
 			CWND:                  option.CWND,
 		}
 
-		t.client = tuic.NewPoolClientV4(clientOption, t.dial)
+		t.client = tuic.NewPoolClientV4(clientOption)
 	} else {
 		maxUdpRelayPacketSize := option.MaxUdpRelayPacketSize
 		if maxUdpRelayPacketSize > tuic.MaxFragSizeV5 {
@@ -310,7 +332,7 @@ func NewTuic(option TuicOption) (*Tuic, error) {
 			CWND:                  option.CWND,
 		}
 
-		t.client = tuic.NewPoolClientV5(clientOption, t.dial)
+		t.client = tuic.NewPoolClientV5(clientOption)
 	}
 
 	return t, nil

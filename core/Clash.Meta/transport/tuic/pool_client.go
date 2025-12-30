@@ -6,7 +6,6 @@ import (
 	"net"
 	"runtime"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	N "github.com/metacubex/mihomo/common/net"
@@ -18,21 +17,30 @@ import (
 	list "github.com/bahlo/generic-list-go"
 )
 
+type dialResult struct {
+	transport *quic.Transport
+	addr      net.Addr
+	err       error
+}
+
 type PoolClient struct {
 	newClientOptionV4 *ClientOptionV4
 	newClientOptionV5 *ClientOptionV5
-
-	dialHelper      *poolDialHelper
-	tcpClients      list.List[Client]
-	tcpClientsMutex sync.Mutex
-	udpClients      list.List[Client]
-	udpClientsMutex sync.Mutex
+	dialResultMap     map[C.Dialer]dialResult
+	dialResultMutex   *sync.Mutex
+	tcpClients        *list.List[Client]
+	tcpClientsMutex   *sync.Mutex
+	udpClients        *list.List[Client]
+	udpClientsMutex   *sync.Mutex
 }
 
-func (t *PoolClient) DialContext(ctx context.Context, metadata *C.Metadata) (net.Conn, error) {
-	conn, err := t.getClient(false).DialContext(ctx, metadata)
+func (t *PoolClient) DialContextWithDialer(ctx context.Context, metadata *C.Metadata, dialer C.Dialer, dialFn DialFunc) (net.Conn, error) {
+	newDialFn := func(ctx context.Context, dialer C.Dialer) (transport *quic.Transport, addr net.Addr, err error) {
+		return t.dial(ctx, dialer, dialFn)
+	}
+	conn, err := t.getClient(false, dialer).DialContextWithDialer(ctx, metadata, dialer, newDialFn)
 	if errors.Is(err, TooManyOpenStreams) {
-		conn, err = t.newClient(false).DialContext(ctx, metadata)
+		conn, err = t.newClient(false, dialer).DialContextWithDialer(ctx, metadata, dialer, newDialFn)
 	}
 	if err != nil {
 		return nil, err
@@ -40,10 +48,13 @@ func (t *PoolClient) DialContext(ctx context.Context, metadata *C.Metadata) (net
 	return N.NewRefConn(conn, t), err
 }
 
-func (t *PoolClient) ListenPacket(ctx context.Context, metadata *C.Metadata) (net.PacketConn, error) {
-	pc, err := t.getClient(true).ListenPacket(ctx, metadata)
+func (t *PoolClient) ListenPacketWithDialer(ctx context.Context, metadata *C.Metadata, dialer C.Dialer, dialFn DialFunc) (net.PacketConn, error) {
+	newDialFn := func(ctx context.Context, dialer C.Dialer) (transport *quic.Transport, addr net.Addr, err error) {
+		return t.dial(ctx, dialer, dialFn)
+	}
+	pc, err := t.getClient(true, dialer).ListenPacketWithDialer(ctx, metadata, dialer, newDialFn)
 	if errors.Is(err, TooManyOpenStreams) {
-		pc, err = t.newClient(true).ListenPacket(ctx, metadata)
+		pc, err = t.newClient(true, dialer).ListenPacketWithDialer(ctx, metadata, dialer, newDialFn)
 	}
 	if err != nil {
 		return nil, err
@@ -51,63 +62,58 @@ func (t *PoolClient) ListenPacket(ctx context.Context, metadata *C.Metadata) (ne
 	return N.NewRefPacketConn(pc, t), nil
 }
 
-// poolDialHelper is a helper for dialFn
-// using a standalone struct to let finalizer working
-type poolDialHelper struct {
-	dialFn     DialFunc
-	dialResult atomic.Pointer[dialResult]
-}
-
-type dialResult struct {
-	transport *quic.Transport
-	addr      net.Addr
-}
-
-func (t *poolDialHelper) dial(ctx context.Context) (transport *quic.Transport, addr net.Addr, err error) {
-	if dr := t.dialResult.Load(); dr != nil {
-		return dr.transport, dr.addr, nil
+func (t *PoolClient) dial(ctx context.Context, dialer C.Dialer, dialFn DialFunc) (transport *quic.Transport, addr net.Addr, err error) {
+	t.dialResultMutex.Lock()
+	dr, ok := t.dialResultMap[dialer]
+	t.dialResultMutex.Unlock()
+	if ok {
+		return dr.transport, dr.addr, dr.err
 	}
 
-	transport, addr, err = t.dialFn(ctx)
+	transport, addr, err = dialFn(ctx, dialer)
 	if err != nil {
 		return nil, nil, err
 	}
 
 	if _, ok := transport.Conn.(*net.UDPConn); ok { // only cache the system's UDPConn
 		transport.SetSingleUse(false) // don't close transport in each dial
+		dr.transport, dr.addr, dr.err = transport, addr, err
 
-		dr := &dialResult{transport: transport, addr: addr}
-		t.dialResult.Store(dr)
+		t.dialResultMutex.Lock()
+		t.dialResultMap[dialer] = dr
+		t.dialResultMutex.Unlock()
 	}
 
 	return transport, addr, err
 }
 
-func (t *poolDialHelper) forceClose() {
-	if dr := t.dialResult.Swap(nil); dr != nil {
-		transport := dr.transport
+func (t *PoolClient) forceClose() {
+	t.dialResultMutex.Lock()
+	defer t.dialResultMutex.Unlock()
+	for key := range t.dialResultMap {
+		transport := t.dialResultMap[key].transport
 		if transport != nil {
 			_ = transport.Close()
 		}
+		delete(t.dialResultMap, key)
 	}
 }
 
-func (t *PoolClient) newClient(udp bool) (client Client) {
-	clients := &t.tcpClients
-	clientsMutex := &t.tcpClientsMutex
+func (t *PoolClient) newClient(udp bool, dialer C.Dialer) (client Client) {
+	clients := t.tcpClients
+	clientsMutex := t.tcpClientsMutex
 	if udp {
-		clients = &t.udpClients
-		clientsMutex = &t.udpClientsMutex
+		clients = t.udpClients
+		clientsMutex = t.udpClientsMutex
 	}
 
 	clientsMutex.Lock()
 	defer clientsMutex.Unlock()
 
-	dialHelper := t.dialHelper
 	if t.newClientOptionV4 != nil {
-		client = NewClientV4(t.newClientOptionV4, udp, dialHelper.dial)
+		client = NewClientV4(t.newClientOptionV4, udp, dialer)
 	} else {
-		client = NewClientV5(t.newClientOptionV5, udp, dialHelper.dial)
+		client = NewClientV5(t.newClientOptionV5, udp, dialer)
 	}
 
 	client.SetLastVisited(time.Now())
@@ -116,12 +122,12 @@ func (t *PoolClient) newClient(udp bool) (client Client) {
 	return client
 }
 
-func (t *PoolClient) getClient(udp bool) Client {
-	clients := &t.tcpClients
-	clientsMutex := &t.tcpClientsMutex
+func (t *PoolClient) getClient(udp bool, dialer C.Dialer) Client {
+	clients := t.tcpClients
+	clientsMutex := t.tcpClientsMutex
 	if udp {
-		clients = &t.udpClients
-		clientsMutex = &t.udpClientsMutex
+		clients = t.udpClients
+		clientsMutex = t.udpClientsMutex
 	}
 	var bestClient Client
 
@@ -136,39 +142,46 @@ func (t *PoolClient) getClient(udp bool) Client {
 				it = next
 				continue
 			}
-			if bestClient == nil {
-				bestClient = client
-			} else {
-				if client.OpenStreams() < bestClient.OpenStreams() {
+			if client.DialerRef() == dialer {
+				if bestClient == nil {
 					bestClient = client
+				} else {
+					if client.OpenStreams() < bestClient.OpenStreams() {
+						bestClient = client
+					}
 				}
 			}
 			it = it.Next()
 		}
-		for it := clients.Front(); it != nil; {
-			client := it.Value
-			if client != bestClient && client.OpenStreams() == 0 && time.Now().Sub(client.LastVisited()) > 30*time.Minute {
-				client.Close()
-				next := it.Next()
-				clients.Remove(it)
-				it = next
-				continue
-			}
-			it = it.Next()
-		}
 	}()
+	for it := clients.Front(); it != nil; {
+		client := it.Value
+		if client != bestClient && client.OpenStreams() == 0 && time.Now().Sub(client.LastVisited()) > 30*time.Minute {
+			client.Close()
+			next := it.Next()
+			clients.Remove(it)
+			it = next
+			continue
+		}
+		it = it.Next()
+	}
 
 	if bestClient == nil {
-		return t.newClient(udp)
+		return t.newClient(udp, dialer)
 	} else {
 		bestClient.SetLastVisited(time.Now())
 		return bestClient
 	}
 }
 
-func NewPoolClientV4(clientOption *ClientOptionV4, dialFn DialFunc) *PoolClient {
+func NewPoolClientV4(clientOption *ClientOptionV4) *PoolClient {
 	p := &PoolClient{
-		dialHelper: &poolDialHelper{dialFn: dialFn},
+		dialResultMap:   make(map[C.Dialer]dialResult),
+		dialResultMutex: &sync.Mutex{},
+		tcpClients:      list.New[Client](),
+		tcpClientsMutex: &sync.Mutex{},
+		udpClients:      list.New[Client](),
+		udpClientsMutex: &sync.Mutex{},
 	}
 	newClientOption := *clientOption
 	p.newClientOptionV4 = &newClientOption
@@ -177,9 +190,14 @@ func NewPoolClientV4(clientOption *ClientOptionV4, dialFn DialFunc) *PoolClient 
 	return p
 }
 
-func NewPoolClientV5(clientOption *ClientOptionV5, dialFn DialFunc) *PoolClient {
+func NewPoolClientV5(clientOption *ClientOptionV5) *PoolClient {
 	p := &PoolClient{
-		dialHelper: &poolDialHelper{dialFn: dialFn},
+		dialResultMap:   make(map[C.Dialer]dialResult),
+		dialResultMutex: &sync.Mutex{},
+		tcpClients:      list.New[Client](),
+		tcpClientsMutex: &sync.Mutex{},
+		udpClients:      list.New[Client](),
+		udpClientsMutex: &sync.Mutex{},
 	}
 	newClientOption := *clientOption
 	p.newClientOptionV5 = &newClientOption
@@ -190,5 +208,5 @@ func NewPoolClientV5(clientOption *ClientOptionV5, dialFn DialFunc) *PoolClient 
 
 func closeClientPool(client *PoolClient) {
 	log.Debugln("Close Tuic PoolClient at %p", client)
-	client.dialHelper.forceClose()
+	client.forceClose()
 }

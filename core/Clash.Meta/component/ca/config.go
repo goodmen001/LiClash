@@ -1,6 +1,7 @@
 package ca
 
 import (
+	"crypto/tls"
 	"crypto/x509"
 	_ "embed"
 	"errors"
@@ -10,9 +11,8 @@ import (
 	"sync"
 
 	"github.com/metacubex/mihomo/common/once"
+	C "github.com/metacubex/mihomo/constant"
 	"github.com/metacubex/mihomo/ntp"
-
-	"github.com/metacubex/tls"
 )
 
 var globalCertPool *x509.CertPool
@@ -106,13 +106,12 @@ func GetTLSConfig(opt Option) (tlsConfig *tls.Config, err error) {
 	}
 
 	if len(opt.Certificate) > 0 || len(opt.PrivateKey) > 0 {
-		certLoader, err := NewTLSKeyPairLoader(opt.Certificate, opt.PrivateKey)
+		var cert tls.Certificate
+		cert, err = LoadTLSKeyPair(opt.Certificate, opt.PrivateKey, C.Path)
 		if err != nil {
 			return nil, err
 		}
-		tlsConfig.GetClientCertificate = func(*tls.CertificateRequestInfo) (*tls.Certificate, error) {
-			return certLoader()
-		}
+		tlsConfig.Certificates = []tls.Certificate{cert}
 	}
 	return tlsConfig, nil
 }

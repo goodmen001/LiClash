@@ -3,18 +3,19 @@ package outbound
 import (
 	"bufio"
 	"context"
+	"crypto/tls"
 	"encoding/base64"
 	"errors"
 	"fmt"
 	"net"
+	"net/http"
 	"strconv"
 
 	N "github.com/metacubex/mihomo/common/net"
 	"github.com/metacubex/mihomo/component/ca"
+	"github.com/metacubex/mihomo/component/dialer"
+	"github.com/metacubex/mihomo/component/proxydialer"
 	C "github.com/metacubex/mihomo/constant"
-
-	"github.com/metacubex/http"
-	"github.com/metacubex/tls"
 )
 
 type Http struct {
@@ -60,7 +61,18 @@ func (h *Http) StreamConnContext(ctx context.Context, c net.Conn, metadata *C.Me
 
 // DialContext implements C.ProxyAdapter
 func (h *Http) DialContext(ctx context.Context, metadata *C.Metadata) (_ C.Conn, err error) {
-	c, err := h.dialer.DialContext(ctx, "tcp", h.addr)
+	return h.DialContextWithDialer(ctx, dialer.NewDialer(h.DialOptions()...), metadata)
+}
+
+// DialContextWithDialer implements C.ProxyAdapter
+func (h *Http) DialContextWithDialer(ctx context.Context, dialer C.Dialer, metadata *C.Metadata) (_ C.Conn, err error) {
+	if len(h.option.DialerProxy) > 0 {
+		dialer, err = proxydialer.NewByName(h.option.DialerProxy, dialer)
+		if err != nil {
+			return nil, err
+		}
+	}
+	c, err := dialer.DialContext(ctx, "tcp", h.addr)
 	if err != nil {
 		return nil, fmt.Errorf("%s connect error: %w", h.addr, err)
 	}
@@ -75,6 +87,11 @@ func (h *Http) DialContext(ctx context.Context, metadata *C.Metadata) (_ C.Conn,
 	}
 
 	return NewConn(c, h), nil
+}
+
+// SupportWithDialer implements C.ProxyAdapter
+func (h *Http) SupportWithDialer() C.NetWork {
+	return C.TCP
 }
 
 // ProxyInfo implements C.ProxyAdapter
@@ -166,23 +183,20 @@ func NewHttp(option HttpOption) (*Http, error) {
 		}
 	}
 
-	outbound := &Http{
+	return &Http{
 		Base: &Base{
 			name:   option.Name,
 			addr:   net.JoinHostPort(option.Server, strconv.Itoa(option.Port)),
 			tp:     C.Http,
-			pdName: option.ProviderName,
 			tfo:    option.TFO,
 			mpTcp:  option.MPTCP,
 			iface:  option.Interface,
 			rmark:  option.RoutingMark,
-			prefer: option.IPVersion,
+			prefer: C.NewDNSPrefer(option.IPVersion),
 		},
 		user:      option.UserName,
 		pass:      option.Password,
 		tlsConfig: tlsConfig,
 		option:    &option,
-	}
-	outbound.dialer = option.NewDialer(outbound.DialOptions())
-	return outbound, nil
+	}, nil
 }

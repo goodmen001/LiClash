@@ -3,12 +3,11 @@ package updater
 import (
 	"context"
 	"io"
+	"net/http"
 	"os"
 	"time"
 
 	mihomoHttp "github.com/metacubex/mihomo/component/http"
-
-	"github.com/metacubex/http"
 )
 
 const defaultHttpTimeout = time.Second * 90

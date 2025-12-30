@@ -13,7 +13,7 @@ import (
 	"time"
 
 	"github.com/metacubex/blake3"
-	"github.com/metacubex/mlkem"
+	"github.com/metacubex/utls/mlkem"
 )
 
 type ServerSession struct {
