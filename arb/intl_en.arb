@@ -211,8 +211,6 @@
   "otherContributors": "Other contributors",
   "autoCloseConnections": "Auto close connections",
   "autoCloseConnectionsDesc": "Auto close connections after change node",
-  "cleanupTunInterfaces": "TUN Cleanup",
-  "cleanupTunInterfacesDesc": "Automatically clean up residual virtual network adapter interfaces",
   "onlyStatisticsProxy": "Only statistics proxy",
   "onlyStatisticsProxyDesc": "When turned on, only statistics proxy traffic",
   "pureBlackMode": "Pure black mode",

@@ -17,6 +17,7 @@ import 'window.dart';
 class Tray {
   Future _updateSystemTray({
     required Brightness? brightness,
+    required bool isStart,
     bool force = false,
   }) async {
     if (system.isAndroid) {
@@ -29,6 +30,7 @@ class Tray {
       utils.getTrayIconPath(
         brightness: brightness ??
             WidgetsBinding.instance.platformDispatcher.platformBrightness,
+        isStart: isStart,
       ),
       isTemplate: true,
     );
@@ -49,6 +51,7 @@ class Tray {
     if (!Platform.isLinux) {
       await _updateSystemTray(
         brightness: trayState.brightness,
+        isStart: trayState.isStart,
         force: focus,
       );
     }
@@ -165,6 +168,7 @@ class Tray {
     if (Platform.isLinux) {
       await _updateSystemTray(
         brightness: trayState.brightness,
+        isStart: trayState.isStart,
         force: focus,
       );
     }

@@ -211,8 +211,6 @@
   "otherContributors": "其他贡献者",
   "autoCloseConnections": "自动关闭连接",
   "autoCloseConnectionsDesc": "切换节点后自动关闭连接",
-  "cleanupTunInterfaces": "TUN清理",
-  "cleanupTunInterfacesDesc": "自动清除残留虚拟网卡接口",
   "onlyStatisticsProxy": "仅统计代理",
   "onlyStatisticsProxyDesc": "开启后，将只统计代理流量",
   "pureBlackMode": "纯黑模式",

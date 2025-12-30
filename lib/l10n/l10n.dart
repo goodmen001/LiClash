@@ -1625,26 +1625,6 @@ class AppLocalizations {
     );
   }
 
-  /// `TUN Cleanup`
-  String get cleanupTunInterfaces {
-    return Intl.message(
-      'TUN Cleanup',
-      name: 'cleanupTunInterfaces',
-      desc: '',
-      args: [],
-    );
-  }
-
-  /// `Automatically clean up residual virtual network adapter interfaces`
-  String get cleanupTunInterfacesDesc {
-    return Intl.message(
-      'Automatically clean up residual virtual network adapter interfaces',
-      name: 'cleanupTunInterfacesDesc',
-      desc: '',
-      args: [],
-    );
-  }
-
   /// `Only statistics proxy`
   String get onlyStatisticsProxy {
     return Intl.message(

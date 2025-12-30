@@ -143,16 +143,26 @@ class Utils {
 
   String getTrayIconPath({
     required Brightness brightness,
+    bool isStart = false,
   }) {
-    if (system.isMacOS) {
-      return 'assets/images/icon_white.png';
+    // Linux 忽略此功能，使用默认图标
+    if (system.isLinux) {
+      return 'assets/images/icon.png';
     }
+    
     final suffix = system.isWindows ? 'ico' : 'png';
-    return 'assets/images/icon.$suffix';
-    // return switch (brightness) {
-    //   Brightness.dark => "assets/images/icon_white.$suffix",
-    //   Brightness.light => "assets/images/icon_black.$suffix",
-    // };
+    
+    // macOS 和 Windows 根据系统主题和启动状态切换图标
+    // 暗色模式：默认黑色，启动后白色
+    // 亮色模式：默认白色，启动后黑色
+    return switch (brightness) {
+      Brightness.dark => isStart 
+          ? "assets/images/icon_white.$suffix"
+          : "assets/images/icon_black.$suffix",
+      Brightness.light => isStart
+          ? "assets/images/icon_black.$suffix"
+          : "assets/images/icon_white.$suffix",
+    };
   }
 
   int compareVersions(String version1, String version2) {

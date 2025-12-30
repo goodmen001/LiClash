@@ -30,31 +30,6 @@ class CloseConnectionsItem extends ConsumerWidget {
   }
 }
 
-class CleanupTunInterfacesItem extends ConsumerWidget {
-  const CleanupTunInterfacesItem({super.key});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final cleanupTunInterfaces = ref.watch(
-      appSettingProvider.select((state) => state.cleanupTunInterfaces),
-    );
-    return ListItem.switchItem(
-      title: Text(appLocalizations.cleanupTunInterfaces),
-      subtitle: Text(appLocalizations.cleanupTunInterfacesDesc),
-      delegate: SwitchDelegate(
-        value: cleanupTunInterfaces,
-        onChanged: (bool value) {
-          ref.read(appSettingProvider.notifier).updateState(
-                (state) => state.copyWith(
-                  cleanupTunInterfaces: value,
-                ),
-              );
-        },
-      ),
-    );
-  }
-}
-
 class UsageItem extends ConsumerWidget {
   const UsageItem({super.key});
 
@@ -303,7 +278,6 @@ class ApplicationSettingView extends StatelessWidget {
       AnimateTabItem(),
       OpenLogsItem(),
       CloseConnectionsItem(),
-      if (system.isWindows) CleanupTunInterfacesItem(),
       UsageItem(),
       AutoCheckUpdateItem(),
     ];

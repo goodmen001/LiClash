@@ -76,7 +76,6 @@ class AppSettingProps with _$AppSettingProps {
     @Default(false) bool autoRun,
     @Default(false) bool openLogs,
     @Default(true) bool closeConnections,
-    @Default(true) bool cleanupTunInterfaces,
     @Default(defaultTestUrl) String testUrl,
     @Default(true) bool isAnimateToPage,
     @Default(true) bool autoCheckUpdate,

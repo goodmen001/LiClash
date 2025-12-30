@@ -564,11 +564,6 @@ class AppController {
       }
     };
     updateTray(true);
-    // 在 Windows 上启动时清理残留的 TUN 接口（如果启用）
-    if (system.isWindows &&
-        _ref.read(appSettingProvider).cleanupTunInterfaces) {
-      await system.cleanupTunInterfaces();
-    }
     await _initCore();
     await _initStatus();
     autoLaunch?.updateStatus(
