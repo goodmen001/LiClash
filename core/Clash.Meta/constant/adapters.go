@@ -53,7 +53,7 @@ const (
 	DefaultTLSTimeout = DefaultTCPTimeout
 )
 
-var DefaultTestURL = "https://g.cn/generate_204"
+var DefaultTestURL = "https://www.gstatic.com/generate_204"
 
 var ErrNotSupport = errors.New("no support")
 
