@@ -30,7 +30,6 @@ mixin _$AppSettingProps {
   bool get autoRun => throw _privateConstructorUsedError;
   bool get openLogs => throw _privateConstructorUsedError;
   bool get closeConnections => throw _privateConstructorUsedError;
-  bool get cleanupTunInterfaces => throw _privateConstructorUsedError;
   String get testUrl => throw _privateConstructorUsedError;
   bool get isAnimateToPage => throw _privateConstructorUsedError;
   bool get autoCheckUpdate => throw _privateConstructorUsedError;
@@ -67,7 +66,6 @@ abstract class $AppSettingPropsCopyWith<$Res> {
       bool autoRun,
       bool openLogs,
       bool closeConnections,
-      bool cleanupTunInterfaces,
       String testUrl,
       bool isAnimateToPage,
       bool autoCheckUpdate,
@@ -102,7 +100,6 @@ class _$AppSettingPropsCopyWithImpl<$Res, $Val extends AppSettingProps>
     Object? autoRun = null,
     Object? openLogs = null,
     Object? closeConnections = null,
-    Object? cleanupTunInterfaces = null,
     Object? testUrl = null,
     Object? isAnimateToPage = null,
     Object? autoCheckUpdate = null,
@@ -145,10 +142,6 @@ class _$AppSettingPropsCopyWithImpl<$Res, $Val extends AppSettingProps>
       closeConnections: null == closeConnections
           ? _value.closeConnections
           : closeConnections // ignore: cast_nullable_to_non_nullable
-              as bool,
-      cleanupTunInterfaces: null == cleanupTunInterfaces
-          ? _value.cleanupTunInterfaces
-          : cleanupTunInterfaces // ignore: cast_nullable_to_non_nullable
               as bool,
       testUrl: null == testUrl
           ? _value.testUrl
@@ -208,7 +201,6 @@ abstract class _$$AppSettingPropsImplCopyWith<$Res>
       bool autoRun,
       bool openLogs,
       bool closeConnections,
-      bool cleanupTunInterfaces,
       String testUrl,
       bool isAnimateToPage,
       bool autoCheckUpdate,
@@ -241,7 +233,6 @@ class __$$AppSettingPropsImplCopyWithImpl<$Res>
     Object? autoRun = null,
     Object? openLogs = null,
     Object? closeConnections = null,
-    Object? cleanupTunInterfaces = null,
     Object? testUrl = null,
     Object? isAnimateToPage = null,
     Object? autoCheckUpdate = null,
@@ -284,10 +275,6 @@ class __$$AppSettingPropsImplCopyWithImpl<$Res>
       closeConnections: null == closeConnections
           ? _value.closeConnections
           : closeConnections // ignore: cast_nullable_to_non_nullable
-              as bool,
-      cleanupTunInterfaces: null == cleanupTunInterfaces
-          ? _value.cleanupTunInterfaces
-          : cleanupTunInterfaces // ignore: cast_nullable_to_non_nullable
               as bool,
       testUrl: null == testUrl
           ? _value.testUrl
@@ -342,7 +329,6 @@ class _$AppSettingPropsImpl implements _AppSettingProps {
       this.autoRun = false,
       this.openLogs = false,
       this.closeConnections = true,
-      this.cleanupTunInterfaces = true,
       this.testUrl = defaultTestUrl,
       this.isAnimateToPage = true,
       this.autoCheckUpdate = true,
@@ -389,9 +375,6 @@ class _$AppSettingPropsImpl implements _AppSettingProps {
   final bool closeConnections;
   @override
   @JsonKey()
-  final bool cleanupTunInterfaces;
-  @override
-  @JsonKey()
   final String testUrl;
   @override
   @JsonKey()
@@ -420,7 +403,7 @@ class _$AppSettingPropsImpl implements _AppSettingProps {
 
   @override
   String toString() {
-    return 'AppSettingProps(locale: $locale, dashboardWidgets: $dashboardWidgets, onlyStatisticsProxy: $onlyStatisticsProxy, autoLaunch: $autoLaunch, silentLaunch: $silentLaunch, autoRun: $autoRun, openLogs: $openLogs, closeConnections: $closeConnections, cleanupTunInterfaces: $cleanupTunInterfaces, testUrl: $testUrl, isAnimateToPage: $isAnimateToPage, autoCheckUpdate: $autoCheckUpdate, showLabel: $showLabel, disclaimerAccepted: $disclaimerAccepted, minimizeOnExit: $minimizeOnExit, hidden: $hidden, developerMode: $developerMode, recoveryStrategy: $recoveryStrategy)';
+    return 'AppSettingProps(locale: $locale, dashboardWidgets: $dashboardWidgets, onlyStatisticsProxy: $onlyStatisticsProxy, autoLaunch: $autoLaunch, silentLaunch: $silentLaunch, autoRun: $autoRun, openLogs: $openLogs, closeConnections: $closeConnections, testUrl: $testUrl, isAnimateToPage: $isAnimateToPage, autoCheckUpdate: $autoCheckUpdate, showLabel: $showLabel, disclaimerAccepted: $disclaimerAccepted, minimizeOnExit: $minimizeOnExit, hidden: $hidden, developerMode: $developerMode, recoveryStrategy: $recoveryStrategy)';
   }
 
   @override
@@ -442,8 +425,6 @@ class _$AppSettingPropsImpl implements _AppSettingProps {
                 other.openLogs == openLogs) &&
             (identical(other.closeConnections, closeConnections) ||
                 other.closeConnections == closeConnections) &&
-            (identical(other.cleanupTunInterfaces, cleanupTunInterfaces) ||
-                other.cleanupTunInterfaces == cleanupTunInterfaces) &&
             (identical(other.testUrl, testUrl) || other.testUrl == testUrl) &&
             (identical(other.isAnimateToPage, isAnimateToPage) ||
                 other.isAnimateToPage == isAnimateToPage) &&
@@ -474,7 +455,6 @@ class _$AppSettingPropsImpl implements _AppSettingProps {
       autoRun,
       openLogs,
       closeConnections,
-      cleanupTunInterfaces,
       testUrl,
       isAnimateToPage,
       autoCheckUpdate,
@@ -513,7 +493,6 @@ abstract class _AppSettingProps implements AppSettingProps {
       final bool autoRun,
       final bool openLogs,
       final bool closeConnections,
-      final bool cleanupTunInterfaces,
       final String testUrl,
       final bool isAnimateToPage,
       final bool autoCheckUpdate,
@@ -544,8 +523,6 @@ abstract class _AppSettingProps implements AppSettingProps {
   bool get openLogs;
   @override
   bool get closeConnections;
-  @override
-  bool get cleanupTunInterfaces;
   @override
   String get testUrl;
   @override

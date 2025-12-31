@@ -10,7 +10,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_acrylic/widgets/transparent_macos_sidebar.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
-import 'package:lottie/lottie.dart';
+import 'package:window_manager/window_manager.dart';
 
 class AppStateManager extends ConsumerStatefulWidget {
   final Widget child;
@@ -258,7 +258,7 @@ class AppSidebarContainer extends ConsumerWidget {
                   const SizedBox(
                     height: 16,
                   ),
-                  _buildHeartbeatIndicator(context, ref),
+                  _buildWindowLockButton(context, ref),
                   const SizedBox(
                     height: 16,
                   ),
@@ -278,31 +278,32 @@ class AppSidebarContainer extends ConsumerWidget {
     );
   }
 
-  Widget _buildHeartbeatIndicator(BuildContext context, WidgetRef ref) {
-    final isStart = ref.watch(runTimeProvider.select((state) => state != null));
-    final brightness = Theme.of(context).brightness;
+  Widget _buildWindowLockButton(BuildContext context, WidgetRef ref) {
+    final isLocked = ref.watch(windowLockedProvider);
     
-    // 根据主题模式选择颜色
-    final color = brightness == Brightness.dark 
-        ? Colors.white 
-        : Colors.black;
-
-    return SizedBox(
-      width: 48,
-      height: 48,
-      child: Lottie.asset(
-        'assets/lottie/heartbeat.json',
-        animate: isStart,
-        repeat: true,
-        delegates: LottieDelegates(
-          values: [
-            ValueDelegate.color(
-              const ['**', 'Shape', '**'],
-              value: color,
-            ),
-          ],
-        ),
+    return IconButton(
+      icon: Icon(
+        isLocked ? Icons.lock : Icons.lock_open,
+        size: 24,
       ),
+      tooltip: isLocked ? '解锁窗口大小' : '锁定窗口大小',
+      onPressed: () async {
+        final newLockedState = !isLocked;
+        ref.read(windowLockedProvider.notifier).state = newLockedState;
+        
+        if (newLockedState) {
+          // 锁定窗口：获取当前窗口大小，设置为最小和最大大小
+          final currentSize = await windowManager.getSize();
+          await windowManager.setMinimumSize(currentSize);
+          await windowManager.setMaximumSize(currentSize);
+          await windowManager.setResizable(false);
+        } else {
+          // 解锁窗口：恢复默认的最小大小，移除最大大小限制，允许调整大小
+          await windowManager.setMinimumSize(const Size(380, 400));
+          await windowManager.setMaximumSize(null);
+          await windowManager.setResizable(true);
+        }
+      },
     );
   }
 }

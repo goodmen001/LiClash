@@ -315,3 +315,11 @@ class PatchClashConfig extends _$PatchClashConfig
     );
   }
 }
+
+@riverpod
+class WindowLocked extends _$WindowLocked with AutoDisposeNotifierMixin {
+  @override
+  bool build() {
+    return false;
+  }
+}
