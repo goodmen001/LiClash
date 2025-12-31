@@ -658,6 +658,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "stop": MessageLookupByLibrary.simpleMessage("Stop"),
     "stopVpn": MessageLookupByLibrary.simpleMessage("Stopping VPN..."),
     "powerSwitch": MessageLookupByLibrary.simpleMessage("Power Switch"),
+    "runTime": MessageLookupByLibrary.simpleMessage("Run Time"),
     "checkOrAddProfile": MessageLookupByLibrary.simpleMessage("Please check or add profile"),
     "serviceReady": MessageLookupByLibrary.simpleMessage("Service ready"),
     "style": MessageLookupByLibrary.simpleMessage("Style"),

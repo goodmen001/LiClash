@@ -239,6 +239,7 @@
   "start": "启动",
   "stop": "暂停",
   "powerSwitch": "启动开关",
+  "runTime": "启动时间",
   "checkOrAddProfile": "请检查或添加配置",
   "serviceReady": "服务已就绪",
   "appDesc": "处理应用相关设置",

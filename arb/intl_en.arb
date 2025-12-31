@@ -239,6 +239,7 @@
   "start": "Start",
   "stop": "Stop",
   "powerSwitch": "Power Switch",
+  "runTime": "Run Time",
   "checkOrAddProfile": "Please check or add profile",
   "serviceReady": "Service ready",
   "appDesc": "Processing app related settings",

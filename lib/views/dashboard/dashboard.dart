@@ -112,7 +112,17 @@ class _DashboardViewState extends ConsumerState<DashboardView> {
       return;
     }
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final dashboardWidgets = children
+      // 过滤掉 StartButton，它不应该被保存到配置中
+      final filteredChildren = children.where((item) {
+        // 检查 GridItem 的 child 是否是 StartButton
+        if (item is GridItem) {
+          final child = item.child;
+          return child is! dashboard_widgets.StartButton;
+        }
+        return true;
+      }).toList();
+      
+      final dashboardWidgets = filteredChildren
           .map(
             (item) => DashboardWidget.getDashboardWidget(item),
           )
@@ -161,10 +171,12 @@ class _DashboardViewState extends ConsumerState<DashboardView> {
               bottom: 16,
             ),
             child: _buildIsEdit((isEdit) {
-              return isEdit
-                  ? SystemBackBlock(
-                      child: CommonPopScope(
-                        child: SuperGrid(
+              if (isEdit) {
+                return SystemBackBlock(
+                  child: CommonPopScope(
+                    child: Column(
+                      children: [
+                        SuperGrid(
                           key: key,
                           crossAxisCount: columns,
                           crossAxisSpacing: spacing,
@@ -179,37 +191,42 @@ class _DashboardViewState extends ConsumerState<DashboardView> {
                                 .map(
                                   (item) => item.widget,
                                 ),
-                            // StartButton 始终在最后，编辑模式下不可删除
-                            GridItem(
-                              crossAxisCellCount: 4,
-                              child: dashboard_widgets.StartButton(),
-                            ).wrap(
-                              builder: (child) => _NonDeletableWidget(child: child),
-                            ),
                           ],
                           onUpdate: () {
                             _handleSave();
                           },
                         ),
-                        onPop: () {
-                          _handleUpdateIsEdit();
-                          return false;
-                        },
-                      ),
-                    )
-                  : Grid(
-                      crossAxisCount: columns,
-                      crossAxisSpacing: spacing,
-                      mainAxisSpacing: spacing,
-                      children: [
-                        ...children,
-                        // StartButton 始终在最后
+                        SizedBox(height: spacing),
+                        // StartButton 单独渲染，不在 SuperGrid 中
                         GridItem(
                           crossAxisCellCount: 4,
-                          child: dashboard_widgets.StartButton(),
+                          child: ActivateBox(
+                            child: dashboard_widgets.StartButton(),
+                          ),
                         ),
                       ],
-                    );
+                    ),
+                    onPop: () {
+                      _handleUpdateIsEdit();
+                      return false;
+                    },
+                  ),
+                );
+              } else {
+                return Grid(
+                  crossAxisCount: columns,
+                  crossAxisSpacing: spacing,
+                  mainAxisSpacing: spacing,
+                  children: [
+                    ...children,
+                    // StartButton 始终在最后
+                    GridItem(
+                      crossAxisCellCount: 4,
+                      child: dashboard_widgets.StartButton(),
+                    ),
+                  ],
+                );
+              }
             })),
       ),
     );
@@ -321,16 +338,3 @@ class _AddedContainerState extends State<_AddedContainer> {
   }
 }
 
-// 不可删除的小部件包装器（用于 StartButton）
-class _NonDeletableWidget extends StatelessWidget {
-  final Widget child;
-
-  const _NonDeletableWidget({required this.child});
-
-  @override
-  Widget build(BuildContext context) {
-    return ActivateBox(
-      child: child,
-    );
-  }
-}

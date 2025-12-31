@@ -1830,6 +1830,11 @@ class AppLocalizations {
     return Intl.message('Power Switch', name: 'powerSwitch', desc: '', args: []);
   }
 
+  /// `Run Time`
+  String get runTime {
+    return Intl.message('Run Time', name: 'runTime', desc: '', args: []);
+  }
+
   /// `Please check or add profile`
   String get checkOrAddProfile {
     return Intl.message('Please check or add profile', name: 'checkOrAddProfile', desc: '', args: []);

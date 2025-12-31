@@ -444,6 +444,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "stop": MessageLookupByLibrary.simpleMessage("暂停"),
     "stopVpn": MessageLookupByLibrary.simpleMessage("正在停止VPN..."),
     "powerSwitch": MessageLookupByLibrary.simpleMessage("启动开关"),
+    "runTime": MessageLookupByLibrary.simpleMessage("启动时间"),
     "checkOrAddProfile": MessageLookupByLibrary.simpleMessage("请检查或添加配置"),
     "serviceReady": MessageLookupByLibrary.simpleMessage("服务已就绪"),
     "style": MessageLookupByLibrary.simpleMessage("风格"),

@@ -33,7 +33,7 @@ class StartButton extends ConsumerWidget {
       height: getWidgetHeight(1),
       child: CommonCard(
         info: Info(
-          label: appLocalizations.powerSwitch,
+          label: isStart ? appLocalizations.runTime : appLocalizations.powerSwitch,
           iconData: Icons.power_settings_new,
         ),
         onPressed: state.isInit && state.hasProfile ? () => _handleStart(ref) : null,
@@ -119,6 +119,7 @@ class StartButton extends ConsumerWidget {
           color: context.colorScheme.primary,
         ),
         SizedBox(width: 4),
+        Text(' ', style: context.textTheme.bodyMedium?.toLight.adjustSize(1)),
         Expanded(
           child: Text(
             timeText,
