@@ -1825,6 +1825,21 @@ class AppLocalizations {
     return Intl.message('Stop', name: 'stop', desc: '', args: []);
   }
 
+  /// `Power Switch`
+  String get powerSwitch {
+    return Intl.message('Power Switch', name: 'powerSwitch', desc: '', args: []);
+  }
+
+  /// `Please check or add profile`
+  String get checkOrAddProfile {
+    return Intl.message('Please check or add profile', name: 'checkOrAddProfile', desc: '', args: []);
+  }
+
+  /// `Service ready`
+  String get serviceReady {
+    return Intl.message('Service ready', name: 'serviceReady', desc: '', args: []);
+  }
+
   /// `Processing app related settings`
   String get appDesc {
     return Intl.message(
