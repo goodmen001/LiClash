@@ -347,28 +347,7 @@ class GlobalState {
         if (proxyProvider['type'] != 'http') {
           continue;
         }
-        
-        // 如果用户设置了 path，使用用户设置的路径（限制在 HomeDir 中）
-        if (proxyProvider['path'] != null && proxyProvider['path'] is String) {
-          final userPath = proxyProvider['path'] as String;
-          // 只保留文件名，移除任何路径分隔符，确保安全
-          final fileName = userPath.split(RegExp(r'[/\\]')).last;
-          if (fileName.isNotEmpty) {
-            proxyProvider['path'] = await appPath.getProvidersFilePath(
-              profile.id,
-              'proxies',
-              fileName,
-            );
-          } else if (proxyProvider['url'] != null) {
-            // 如果文件名为空，回退到使用 URL 的 MD5
-            proxyProvider['path'] = await appPath.getProvidersFilePath(
-              profile.id,
-              'proxies',
-              proxyProvider['url'],
-            );
-          }
-        } else if (proxyProvider['url'] != null) {
-          // 如果没有设置 path，使用 URL 的 MD5
+        if (proxyProvider['url'] != null) {
           proxyProvider['path'] = await appPath.getProvidersFilePath(
             profile.id,
             'proxies',
@@ -385,28 +364,7 @@ class GlobalState {
         if (ruleProvider['type'] != 'http') {
           continue;
         }
-        
-        // 如果用户设置了 path，使用用户设置的路径（限制在 HomeDir 中）
-        if (ruleProvider['path'] != null && ruleProvider['path'] is String) {
-          final userPath = ruleProvider['path'] as String;
-          // 只保留文件名，移除任何路径分隔符，确保安全
-          final fileName = userPath.split(RegExp(r'[/\\]')).last;
-          if (fileName.isNotEmpty) {
-            ruleProvider['path'] = await appPath.getProvidersFilePath(
-              profile.id,
-              'rules',
-              fileName,
-            );
-          } else if (ruleProvider['url'] != null) {
-            // 如果文件名为空，回退到使用 URL 的 MD5
-            ruleProvider['path'] = await appPath.getProvidersFilePath(
-              profile.id,
-              'rules',
-              ruleProvider['url'],
-            );
-          }
-        } else if (ruleProvider['url'] != null) {
-          // 如果没有设置 path，使用 URL 的 MD5
+        if (ruleProvider['url'] != null) {
           ruleProvider['path'] = await appPath.getProvidersFilePath(
             profile.id,
             'rules',

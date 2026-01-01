@@ -59,7 +59,7 @@ dns:
   listen: 0.0.0.0:8553
   ipv6: true
   enhanced-mode: fake-ip
-  fake-ip-range: 198.18.0.1/16
+  fake-ip-range: 198.18.0.1/15
   fake-ip-filter:
     - .sslip.io
   nameserver:

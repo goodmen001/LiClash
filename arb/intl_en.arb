@@ -262,7 +262,7 @@
   "statusDesc": "System DNS will be used when turned off",
   "preferH3Desc": "Prioritize the use of DOH's http/3",
   "respectRules": "Respect rules",
-  "respectRulesDesc": "DNS connection following rules, need to configure proxy-server-nameserver",
+  "respectRulesDesc": "DNS connection following rules",
   "dnsMode": "DNS mode",
   "fakeipRange": "Fakeip range",
   "fakeipFilter": "Fakeip filter",

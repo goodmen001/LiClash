@@ -55,31 +55,6 @@ class UsageItem extends ConsumerWidget {
   }
 }
 
-class MinimizeItem extends ConsumerWidget {
-  const MinimizeItem({super.key});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final minimizeOnExit = ref.watch(
-      appSettingProvider.select((state) => state.minimizeOnExit),
-    );
-    return ListItem.switchItem(
-      title: Text(appLocalizations.minimizeOnExit),
-      subtitle: Text(appLocalizations.minimizeOnExitDesc),
-      delegate: SwitchDelegate(
-        value: minimizeOnExit,
-        onChanged: (bool value) {
-          ref.read(appSettingProvider.notifier).updateState(
-                (state) => state.copyWith(
-                  minimizeOnExit: value,
-                ),
-              );
-        },
-      ),
-    );
-  }
-}
-
 class AutoLaunchItem extends ConsumerWidget {
   const AutoLaunchItem({super.key});
 
@@ -266,7 +241,6 @@ class ApplicationSettingView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     List<Widget> items = [
-      MinimizeItem(),
       if (system.isDesktop) ...[
         AutoLaunchItem(),
         SilentLaunchItem(),

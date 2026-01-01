@@ -2015,10 +2015,10 @@ class AppLocalizations {
     );
   }
 
-  /// `DNS connection following rules, need to configure proxy-server-nameserver`
+  /// `DNS connection following rules`
   String get respectRulesDesc {
     return Intl.message(
-      'DNS connection following rules, need to configure proxy-server-nameserver',
+      'DNS connection following rules',
       name: 'respectRulesDesc',
       desc: '',
       args: [],

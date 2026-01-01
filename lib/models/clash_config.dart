@@ -182,7 +182,7 @@ class Tun with _$Tun {
     @Default(tunDeviceName) String device,
     @JsonKey(name: 'auto-route') @Default(false) bool autoRoute,
     @Default(TunStack.system) TunStack stack,
-    @JsonKey(name: 'dns-hijack') @Default(['any:53']) List<String> dnsHijack,
+    @JsonKey(name: 'dns-hijack') @Default(['any:53', 'tcp://any:53']) List<String> dnsHijack,
     @JsonKey(name: 'route-address') @Default([]) List<String> routeAddress,
     @JsonKey(name: 'disable-icmp-forwarding') @Default(true) bool disableIcmpForwarding,
   }) = _Tun;

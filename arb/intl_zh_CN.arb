@@ -262,7 +262,7 @@
   "statusDesc": "关闭后将使用系统DNS",
   "preferH3Desc": "优先使用DOH的http/3",
   "respectRules": "遵守规则",
-  "respectRulesDesc": "DNS连接跟随rules,需配置proxy-server-nameserver",
+  "respectRulesDesc": "DNS连接跟随Rules",
   "dnsMode": "DNS模式",
   "fakeipRange": "Fakeip范围",
   "fakeipFilter": "Fakeip过滤",

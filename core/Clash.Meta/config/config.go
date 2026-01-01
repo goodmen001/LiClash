@@ -489,7 +489,7 @@ func DefaultRawConfig() *RawConfig {
 			UseSystemHosts: true,
 			IPv6Timeout:    100,
 			EnhancedMode:   C.DNSMapping,
-			FakeIPRange:    "198.18.0.1/16",
+			FakeIPRange:    "198.18.0.1/15",
 			FallbackFilter: RawFallbackFilter{
 				GeoIP:     true,
 				GeoIPCode: "CN",
@@ -1557,7 +1557,7 @@ func parseIPV6(rawCfg *RawConfig) {
 func parseTun(rawTun RawTun, dns *DNS, general *General) error {
 	tunAddressPrefix := dns.FakeIPRange
 	if !tunAddressPrefix.IsValid() {
-		tunAddressPrefix = netip.MustParsePrefix("198.18.0.1/16")
+		tunAddressPrefix = netip.MustParsePrefix("198.18.0.1/15")
 	}
 	tunAddressPrefix = netip.PrefixFrom(tunAddressPrefix.Addr(), 30)
 

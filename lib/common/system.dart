@@ -202,23 +202,36 @@ class Windows {
   }
 
   Future<WindowsHelperServiceStatus> checkService() async {
-    // final qcResult = await Process.run('sc', ['qc', appHelperService]);
-    // final qcOutput = qcResult.stdout.toString();
-    // if (qcResult.exitCode != 0 || !qcOutput.contains(appPath.helperPath)) {
-    //   return WindowsHelperServiceStatus.none;
-    // }
+    // 快速检查：只查询服务状态，不 ping
     final result = await Process.run('sc', ['query', appHelperService]);
     if (result.exitCode != 0) {
       return WindowsHelperServiceStatus.none;
     }
     final output = result.stdout.toString();
-    if (output.contains('RUNNING') && await request.pingHelper()) {
-      return WindowsHelperServiceStatus.running;
+    if (output.contains('RUNNING')) {
+      // 服务显示为运行中，进行快速 ping 验证
+      final isReachable = await request.quickPingHelper();
+      if (isReachable) {
+        return WindowsHelperServiceStatus.running;
+      }
+      // 服务运行但无法连接，可能需要重启
+      return WindowsHelperServiceStatus.presence;
     }
     return WindowsHelperServiceStatus.presence;
   }
 
   Future<bool> registerService() async {
+    // 快速路径：先检查服务是否已运行
+    final quickCheck = await Process.run('sc', ['query', appHelperService]);
+    if (quickCheck.exitCode == 0 && quickCheck.stdout.toString().contains('RUNNING')) {
+      // 服务已运行，快速验证连接
+      final isReachable = await request.quickPingHelper();
+      if (isReachable) {
+        return true; // 服务正常运行，立即返回
+      }
+    }
+
+    // 完整检查：服务不存在或未运行，需要注册
     final status = await checkService();
 
     if (status == WindowsHelperServiceStatus.running) {
@@ -249,9 +262,14 @@ class Windows {
 
     final res = runas('cmd.exe', command);
 
-    await Future.delayed(
-      Duration(milliseconds: 300),
-    );
+    // 等待服务启动，增加重试机制
+    for (int i = 0; i < 10; i++) {
+      await Future.delayed(Duration(milliseconds: 300));
+      final isReachable = await request.quickPingHelper();
+      if (isReachable) {
+        return true;
+      }
+    }
 
     return res;
   }

@@ -1461,7 +1461,7 @@ class _$TunImpl implements _Tun {
       @JsonKey(name: 'auto-route') this.autoRoute = false,
       this.stack = TunStack.system,
       @JsonKey(name: 'dns-hijack')
-      final List<String> dnsHijack = const ['any:53'],
+      final List<String> dnsHijack = const ['any:53', 'tcp://any:53'],
       @JsonKey(name: 'route-address')
       final List<String> routeAddress = const [],
       @JsonKey(name: 'disable-icmp-forwarding')

@@ -36,13 +36,15 @@ class IcmpForwardingItem extends ConsumerWidget {
       subtitle: Text(appLocalizations.icmpForwardingDesc),
       delegate: SwitchDelegate(
         value: icmpForwarding,
-        onChanged: (value) {
+        onChanged: (value) async {
           // 取反后传递给内核
           ref.read(patchClashConfigProvider.notifier).updateState(
                 (state) => state.copyWith.tun(
                   disableIcmpForwarding: !value,
                 ),
               );
+          // 重新加载配置使设置立即生效
+          await globalState.appController.updateClashConfig();
         },
       ),
     );
@@ -69,7 +71,7 @@ class IcmpForwardingItem extends ConsumerWidget {
 **arb/intl_zh_CN.arb**:
 ```json
 "icmpForwarding": "ICMP转发",
-"icmpForwardingDesc": "开启后将支持ICMP Ping",
+"icmpForwardingDesc": "开启后将支持ICMPing",
 ```
 
 **arb/intl_en.arb**:
@@ -92,7 +94,7 @@ String get icmpForwardingDesc {
 **lib/l10n/intl/messages_zh_CN.dart** 和 **messages_en.dart**:
 ```dart
 "icmpForwarding": MessageLookupByLibrary.simpleMessage("ICMP转发"),
-"icmpForwardingDesc": MessageLookupByLibrary.simpleMessage("开启后将支持ICMP Ping"),
+"icmpForwardingDesc": MessageLookupByLibrary.simpleMessage("开启后将支持ICMPing"),
 ```
 
 ### 3. 配置传递流程
@@ -174,7 +176,7 @@ class UpdateParams with _$UpdateParams {
 │ 自动设置系统DNS              [开关]  │
 │                                      │
 │ ICMP转发                     [开关]  │  ← 新增
-│ 开启后将支持ICMP Ping                │
+│ 开启后将支持ICMPing                │
 │                                      │
 │ 栈模式                               │
 │ system                        >      │
@@ -186,7 +188,7 @@ class UpdateParams with _$UpdateParams {
 1. **UI 显示**
    - [ ] ICMP转发选项显示在栈模式上方
    - [ ] 标题显示"ICMP转发"（中文）/"ICMP Forwarding"（英文）
-   - [ ] 描述显示"开启后将支持ICMP Ping"（中文）/"Enable ICMPing Support"（英文）
+   - [ ] 描述显示"开启后将支持ICMPing"（中文）/"Enable ICMPing Support"（英文）
 
 2. **功能测试**
    - [ ] 默认状态：开关关闭（对应 `disable-icmp-forwarding=true`）
@@ -210,4 +212,12 @@ class UpdateParams with _$UpdateParams {
 4. **依赖关系**：此功能独立于其他网络设置，不需要特殊依赖
 
 ## 状态
-✅ 实现完成 - 等待测试
+✅ 实现完成 - 已修复立即生效问题
+
+## 修复记录
+
+### 2025-01-01: 修复 ICMP 转发开关不立即生效的问题
+- **问题**：用户切换 ICMP 转发开关后，设置不会立即生效，需要重启或重新加载配置
+- **原因**：`onChanged` 回调只更新了配置状态，但没有触发配置重新加载
+- **解决方案**：在 `onChanged` 回调中添加 `await globalState.appController.updateClashConfig()` 调用
+- **影响**：现在切换开关后，配置会立即应用到内核，无需手动重启

@@ -152,6 +152,29 @@ class Request {
     }
   }
 
+  Future<bool> quickPingHelper() async {
+    try {
+      final response = await _dio
+          .get(
+            'http://$localhost:$helperPort/ping',
+            options: Options(
+              responseType: ResponseType.plain,
+            ),
+          )
+          .timeout(
+            const Duration(
+              milliseconds: 500, // 快速检查，只等待 500ms
+            ),
+          );
+      if (response.statusCode != HttpStatus.ok) {
+        return false;
+      }
+      return (response.data as String) == globalState.coreSHA256;
+    } catch (_) {
+      return false;
+    }
+  }
+
   Future<bool> startCoreByHelper(String arg) async {
     try {
       final response = await _dio

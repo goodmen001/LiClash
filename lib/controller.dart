@@ -434,14 +434,11 @@ class AppController {
     if (_ref.read(backBlockProvider)) {
       return;
     }
-    if (_ref.read(appSettingProvider).minimizeOnExit) {
-      if (system.isDesktop) {
-        await savePreferences();
-      }
-      await system.back();
-    } else {
-      await handleExit();
+    // 始终启用退出时最小化功能
+    if (system.isDesktop) {
+      await savePreferences();
     }
+    await system.back();
   }
 
   void backBlock() {

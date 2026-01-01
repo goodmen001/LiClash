@@ -402,7 +402,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "resourcesDesc": MessageLookupByLibrary.simpleMessage("外部资源相关信息"),
     "respectRules": MessageLookupByLibrary.simpleMessage("遵守规则"),
     "respectRulesDesc": MessageLookupByLibrary.simpleMessage(
-      "DNS连接跟随rules,需配置proxy-server-nameserver",
+      "DNS连接跟随Rules",
     ),
     "routeAddress": MessageLookupByLibrary.simpleMessage("路由地址"),
     "routeAddressDesc": MessageLookupByLibrary.simpleMessage("配置监听路由地址"),
@@ -437,7 +437,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "specialRules": MessageLookupByLibrary.simpleMessage("特殊规则"),
     "stackMode": MessageLookupByLibrary.simpleMessage("栈模式"),
     "icmpForwarding": MessageLookupByLibrary.simpleMessage("ICMP转发"),
-    "icmpForwardingDesc": MessageLookupByLibrary.simpleMessage("开启后将支持ICMP Ping"),
+    "icmpForwardingDesc": MessageLookupByLibrary.simpleMessage("开启后将支持ICMPing"),
     "standard": MessageLookupByLibrary.simpleMessage("标准"),
     "start": MessageLookupByLibrary.simpleMessage("启动"),
     "startVpn": MessageLookupByLibrary.simpleMessage("正在启动VPN..."),
