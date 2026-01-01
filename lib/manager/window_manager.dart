@@ -214,58 +214,61 @@ class _WindowHeaderState extends State<WindowHeader> {
         valueListenable: isHoveringNotifier,
         builder: (_, isHovering, __) {
           final showButtons = !shouldUseHoverEffect || isHovering;
-          return Visibility(
-            visible: showButtons,
-            child: Row(
-              children: [
-                IconButton(
-                  onPressed: () async {
-                    _updatePin();
-                  },
-                  icon: ValueListenableBuilder(
-                    valueListenable: isPinNotifier,
-                    builder: (_, value, ___) {
-                      return value
-                          ? const Icon(
-                              Icons.push_pin,
-                            )
-                          : const Icon(
-                              Icons.push_pin_outlined,
-                            );
+          return Opacity(
+            opacity: showButtons ? 1.0 : 0.0,
+            child: IgnorePointer(
+              ignoring: !showButtons,
+              child: Row(
+                children: [
+                  IconButton(
+                    onPressed: () async {
+                      _updatePin();
                     },
+                    icon: ValueListenableBuilder(
+                      valueListenable: isPinNotifier,
+                      builder: (_, value, ___) {
+                        return value
+                            ? const Icon(
+                                Icons.push_pin,
+                              )
+                            : const Icon(
+                                Icons.push_pin_outlined,
+                              );
+                      },
+                    ),
                   ),
-                ),
-                IconButton(
-                  onPressed: () {
-                    windowManager.minimize();
-                  },
-                  icon: const Icon(Icons.remove),
-                ),
-                IconButton(
-                  onPressed: () async {
-                    _updateMaximized();
-                  },
-                  icon: ValueListenableBuilder(
-                    valueListenable: isMaximizedNotifier,
-                    builder: (_, value, ___) {
-                      return value
-                          ? const Icon(
-                              Icons.filter_none,
-                              size: 20,
-                            )
-                          : const Icon(
-                              Icons.crop_square,
-                            );
+                  IconButton(
+                    onPressed: () {
+                      windowManager.minimize();
                     },
+                    icon: const Icon(Icons.remove),
                   ),
-                ),
-                IconButton(
-                  onPressed: () {
-                    globalState.appController.handleBackOrExit();
-                  },
-                  icon: const Icon(Icons.close),
-                ),
-              ],
+                  IconButton(
+                    onPressed: () async {
+                      _updateMaximized();
+                    },
+                    icon: ValueListenableBuilder(
+                      valueListenable: isMaximizedNotifier,
+                      builder: (_, value, ___) {
+                        return value
+                            ? const Icon(
+                                Icons.filter_none,
+                                size: 20,
+                              )
+                            : const Icon(
+                                Icons.crop_square,
+                              );
+                      },
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () {
+                      globalState.appController.handleBackOrExit();
+                    },
+                    icon: const Icon(Icons.close),
+                  ),
+                ],
+              ),
             ),
           );
         },
