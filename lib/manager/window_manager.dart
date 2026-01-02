@@ -318,19 +318,13 @@ class AppIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: context.colorScheme.primaryContainer,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      padding: EdgeInsets.all(6),
-      child: SizedBox(
-        width: 28,
-        height: 28,
-        child: CircleAvatar(
-          foregroundImage: AssetImage('assets/images/icon.png'),
-          backgroundColor: Colors.transparent,
-        ),
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return SizedBox(
+      width: 40,
+      height: 40,
+      child: Image.asset(
+        isDark ? 'assets/images/icon_white.png' : 'assets/images/icon_black.png',
+        fit: BoxFit.contain,
       ),
     );
   }

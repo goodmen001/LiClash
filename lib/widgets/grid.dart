@@ -330,12 +330,14 @@ class GridParentData extends ContainerBoxParentData<RenderBox> {
 class GridItem extends ParentDataWidget<GridParentData> {
   final int crossAxisCellCount;
   final num? mainAxisCellCount;
+  final bool isDeletable;
 
   const GridItem({
     super.key,
     required super.child,
     this.mainAxisCellCount,
     this.crossAxisCellCount = 1,
+    this.isDeletable = true,
   });
 
   @override
@@ -371,6 +373,7 @@ class GridItem extends ParentDataWidget<GridParentData> {
     return GridItem(
       mainAxisCellCount: mainAxisCellCount,
       crossAxisCellCount: crossAxisCellCount,
+      isDeletable: isDeletable,
       child: builder(
         child,
       ),

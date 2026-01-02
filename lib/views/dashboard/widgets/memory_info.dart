@@ -36,9 +36,9 @@ class _MemoryInfoState extends State<MemoryInfo> {
 
   Future<void> _updateMemory() async {
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      final rss = ProcessInfo.currentRss;
+      // final rss = ProcessInfo.currentRss;
       _memoryInfoStateNotifier.value = TrafficValue(
-        value: clashLib != null ? rss : await clashCore.getMemory() + rss,
+        value: await clashCore.getMemory(),
       );
       timer = Timer(Duration(seconds: 2), () async {
         _updateMemory();

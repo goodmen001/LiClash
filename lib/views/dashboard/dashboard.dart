@@ -112,17 +112,7 @@ class _DashboardViewState extends ConsumerState<DashboardView> {
       return;
     }
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      // 过滤掉 StartButton，它不应该被保存到配置中
-      final filteredChildren = children.where((item) {
-        // 检查 GridItem 的 child 是否是 StartButton
-        if (item is GridItem) {
-          final child = item.child;
-          return child is! dashboard_widgets.StartButton;
-        }
-        return true;
-      }).toList();
-      
-      final dashboardWidgets = filteredChildren
+      final dashboardWidgets = children
           .map(
             (item) => DashboardWidget.getDashboardWidget(item),
           )
@@ -197,21 +187,6 @@ class _DashboardViewState extends ConsumerState<DashboardView> {
                             _handleSave();
                           },
                         ),
-                        SizedBox(height: spacing),
-                        // StartButton 单独渲染在 Grid 中，保持正确的宽度
-                        Grid(
-                          crossAxisCount: columns,
-                          crossAxisSpacing: spacing,
-                          mainAxisSpacing: spacing,
-                          children: [
-                            GridItem(
-                              crossAxisCellCount: 4,
-                              child: ActivateBox(
-                                child: dashboard_widgets.StartButton(),
-                              ),
-                            ),
-                          ],
-                        ),
                       ],
                     ),
                     onPop: () {
@@ -227,11 +202,6 @@ class _DashboardViewState extends ConsumerState<DashboardView> {
                   mainAxisSpacing: spacing,
                   children: [
                     ...children,
-                    // StartButton 始终在最后
-                    GridItem(
-                      crossAxisCellCount: 4,
-                      child: dashboard_widgets.StartButton(),
-                    ),
                   ],
                 );
               }

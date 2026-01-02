@@ -91,8 +91,9 @@ class _AppStateManagerState extends ConsumerState<AppStateManager>
     if (state == AppLifecycleState.paused ||
         state == AppLifecycleState.inactive) {
       globalState.appController.savePreferences();
+      render?.pause();
     } else {
-      render?.resume();
+      render?.active();
     }
     if (state == AppLifecycleState.inactive) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -110,7 +111,7 @@ class _AppStateManagerState extends ConsumerState<AppStateManager>
   Widget build(BuildContext context) {
     return Listener(
       onPointerHover: (_) {
-        render?.resume();
+        render?.active();
       },
       child: widget.child,
     );

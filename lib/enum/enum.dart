@@ -401,6 +401,13 @@ enum DashboardWidget {
       crossAxisCellCount: 4,
       child: MemoryInfo(),
     ),
+  ),
+  startButton(
+    GridItem(
+      crossAxisCellCount: 4,
+      isDeletable: false,
+      child: StartButton(),
+    ),
   );
 
   final GridItem widget;

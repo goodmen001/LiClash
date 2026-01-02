@@ -450,6 +450,7 @@ class SuperGridState extends State<SuperGrid> with TickerProviderStateMixin {
     required Widget feedback,
     required Widget item,
     required int index,
+    bool isDeletable = true,
   }) {
     final target = DragTarget<int>(
       builder: (_, __, ___) {
@@ -481,13 +482,16 @@ class SuperGridState extends State<SuperGrid> with TickerProviderStateMixin {
           if (dragIndex == index) {
             return child!;
           }
+          final content = isDeletable
+              ? _DeletableContainer(
+                  onDelete: () {
+                    _handleDelete(index);
+                  },
+                  child: child!,
+                )
+              : child!;
           return _buildShake(
-            _DeletableContainer(
-              onDelete: () {
-                _handleDelete(index);
-              },
-              child: child!,
-            ),
+            content,
           );
         },
         child: target,
@@ -533,6 +537,7 @@ class SuperGridState extends State<SuperGrid> with TickerProviderStateMixin {
     return GridItem(
       mainAxisCellCount: girdItem.mainAxisCellCount,
       crossAxisCellCount: girdItem.crossAxisCellCount,
+      isDeletable: girdItem.isDeletable,
       child: Builder(
         builder: (context) {
           _itemContexts[index] = context;
@@ -564,6 +569,7 @@ class SuperGridState extends State<SuperGrid> with TickerProviderStateMixin {
               feedback: feedback,
               item: child,
               index: index,
+              isDeletable: girdItem.isDeletable,
             ),
             index,
           );
