@@ -119,7 +119,7 @@ class StartButton extends ConsumerWidget {
           color: context.colorScheme.primary,
         ),
         SizedBox(width: 4),
-        Text(' ', style: context.textTheme.bodyMedium?.toLight.adjustSize(1)),
+        Text('  ', style: context.textTheme.bodyMedium?.toLight.adjustSize(1)),
         Expanded(
           child: Text(
             timeText,
