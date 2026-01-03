@@ -111,9 +111,7 @@ func (m *Manager) Snapshot() *Snapshot {
 func (m *Manager) updateMemory() {
 	var memStats runtime.MemStats
 	runtime.ReadMemStats(&memStats)
-	// Use Alloc (currently allocated heap memory) for a lower, more accurate representation
-	// of Go kernel memory usage, similar to sing-box
-	m.memory = memStats.Alloc
+	m.memory = memStats.Sys
 }
 
 func (m *Manager) ResetStatistic() {

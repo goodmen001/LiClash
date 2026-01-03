@@ -30,9 +30,11 @@ class _StartButtonState extends ConsumerState<StartButton> {
   void _startTimer() {
     _timer?.cancel();
     _seconds = 0;
-    _statusText = null;
 
     if (system.isAndroid) return;
+
+    // Set first status immediately
+    _statusText = appLocalizations.waitMoment;
 
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (!mounted) {
@@ -40,17 +42,16 @@ class _StartButtonState extends ConsumerState<StartButton> {
         return;
       }
       _seconds++;
-      
+
       String? newText;
-      if (_seconds < 1) {
-        newText = null;
-      } else if (_seconds < 2) {
+      // Faster transitions to ensure visibility even on relatively quick startups
+      if (_seconds < 2) {
         newText = appLocalizations.waitMoment;
       } else if (_seconds < 4) {
         newText = appLocalizations.checkingService;
-      } else if (_seconds < 7) {
+      } else if (_seconds < 6) {
         newText = appLocalizations.asyncLoading;
-      } else if (_seconds < 10) {
+      } else if (_seconds < 8) {
         newText = appLocalizations.quickConfig;
       } else {
         newText = appLocalizations.safeStartup;
@@ -69,7 +70,9 @@ class _StartButtonState extends ConsumerState<StartButton> {
     final newState = !isStart;
 
     if (newState) {
-      _startTimer();
+      setState(() {
+        _startTimer();
+      });
     } else {
       _timer?.cancel();
       if (_statusText != null) {
@@ -92,8 +95,9 @@ class _StartButtonState extends ConsumerState<StartButton> {
   Widget build(BuildContext context) {
     ref.listen(runTimeProvider, (previous, next) {
       if (next != null) {
-        _timer?.cancel();
-        if (_statusText != null) {
+        if (_timer != null || _statusText != null) {
+          _timer?.cancel();
+          _timer = null;
           setState(() {
             _statusText = null;
           });
@@ -186,7 +190,7 @@ class _StartButtonState extends ConsumerState<StartButton> {
       );
     }
 
-    // 启动状态：显示暂停图标 + 运行时间
+    // Started state: show pause icon + run time
     final timeText = _formatRunTime(runTime);
     return Row(
       mainAxisAlignment: MainAxisAlignment.start,
@@ -218,14 +222,14 @@ class _StartButtonState extends ConsumerState<StartButton> {
     int inMinutes = (diff / 60 % 60).floor();
     int inSeconds = (diff % 60).floor();
 
-    // 限制最大显示为 999:59:59
+    // Limit maximum display to 999:59:59
     if (inHours > 999) {
       inHours = 999;
       inMinutes = 59;
       inSeconds = 59;
     }
 
-    // 小于100小时显示2位，大于等于100小时显示3位
+    // If less than 100 hours, show 2 digits; otherwise 3
     final hourStr = inHours < 100
         ? inHours.toString().padLeft(2, '0')
         : inHours.toString().padLeft(3, '0');
